@@ -1,0 +1,105 @@
+.app-frame {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: calc(var(--space-7) + env(safe-area-inset-top, 0px)) var(--space-5) var(--space-4);
+}
+
+.eyebrow {
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.page-title {
+  margin-top: var(--space-2);
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.page-subtitle {
+  margin-top: var(--space-2);
+  font-size: 0.98rem;
+}
+
+.page-content {
+  padding: 0 var(--space-5) var(--bottom-safe-space);
+}
+
+.page-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.section-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-card);
+}
+
+.floating-action {
+  position: fixed;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(138px);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 1.8rem;
+  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-dark));
+  box-shadow: var(--shadow-floating);
+}
+
+@media (min-width: 431px) {
+  .app-frame {
+    padding: 20px;
+  }
+
+  .app-shell {
+    min-height: calc(100vh - 40px);
+    border-radius: 36px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  }
+
+  .floating-action {
+    transform: translateX(155px);
+  }
+}

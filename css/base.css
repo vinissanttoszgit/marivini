@@ -1,0 +1,54 @@
+body {
+  background:
+    radial-gradient(circle at top, rgba(15, 159, 143, 0.08), transparent 28%),
+    var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+}
+
+p {
+  color: var(--color-muted);
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 14px 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(15, 159, 143, 0.45);
+  box-shadow: 0 0 0 4px rgba(15, 159, 143, 0.12);
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+label {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.hidden {
+  display: none !important;
+}

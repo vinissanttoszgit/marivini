@@ -1,0 +1,126 @@
+.progress-card {
+  padding: 22px;
+  display: grid;
+  gap: var(--space-4);
+  background: linear-gradient(180deg, #ffffff 0%, #f2fbfa 100%);
+}
+
+.progress-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.progress-card__value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.progress-card__meta {
+  font-size: 0.92rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(15, 159, 143, 0.12);
+  overflow: hidden;
+}
+
+.progress-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
+}
+
+.habit-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.habit-card {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.habit-card__check {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(15, 159, 143, 0.24);
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.habit-card__check.is-complete {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.habit-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  background: var(--color-primary-light);
+}
+
+.habit-card__main {
+  display: grid;
+  gap: 4px;
+}
+
+.habit-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.habit-card__description {
+  font-size: 0.88rem;
+}
+
+.habit-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.status-risk,
+.status-warning,
+.status-safe {
+  font-size: 0.76rem;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.status-risk {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.status-warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.status-safe {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.habit-card__actions {
+  display: grid;
+  gap: 8px;
+}
