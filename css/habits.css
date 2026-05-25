@@ -195,12 +195,73 @@
   gap: 8px;
 }
 
-.weekday-field__label,
-.habit-icon-field__label {
+.weekday-field__label {
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text);
   letter-spacing: 0.01em;
+}
+
+.habit-title-group {
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+
+.habit-title-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.habit-title-field input {
+  padding-right: 54px;
+}
+
+.habit-icon-trigger {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  color: var(--color-text);
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+}
+
+.habit-icon-trigger span {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.habit-icon-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.habit-icon-option {
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--color-surface-soft);
+  font-size: 1.1rem;
+  display: grid;
+  place-items: center;
+}
+
+.habit-icon-option.is-selected {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  border-color: var(--color-primary);
 }
 
 .weekday-picker {
@@ -225,26 +286,4 @@
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: #fff;
-}
-
-.habit-icon-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-soft);
-}
-
-.habit-icon-field__select {
-  width: auto;
-  min-width: 72px;
-  padding: 8px 30px 8px 12px;
-  font-size: 1rem;
-  font-weight: 700;
-  text-align: center;
-  border-color: color-mix(in srgb, var(--color-primary) 18%, white);
-  background: var(--color-surface);
 }

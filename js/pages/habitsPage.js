@@ -45,7 +45,14 @@ export function createHabitsPage(context) {
       return [...DEFAULT_ACTIVE_DAYS];
     }
 
-    const uniqueDays = [...new Set(activeDays.map((day) => Number(day)).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+    const uniqueDays = [
+      ...new Set(
+        activeDays
+          .map((day) => Number(day))
+          .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+      )
+    ];
+
     return uniqueDays.length ? uniqueDays : [...DEFAULT_ACTIVE_DAYS];
   }
 
@@ -156,7 +163,11 @@ export function createHabitsPage(context) {
                 description: state.habits.length
                   ? "Escolha outro dia ou adicione um hábito para esta rotina."
                   : "Adicione seu primeiro hábito para começar a acompanhar sua rotina.",
-                action: button(state.habits.length ? "Adicionar hábito" : "Criar primeiro hábito", "primary", 'id="empty-create-habit"')
+                action: button(
+                  state.habits.length ? "Adicionar hábito" : "Criar primeiro hábito",
+                  "primary",
+                  'id="empty-create-habit"'
+                )
               })
         }
       </div>
@@ -175,6 +186,7 @@ export function createHabitsPage(context) {
 
   function toggleSelection(habitId) {
     const selectionSet = getSelectionSet();
+
     if (selectionSet.has(habitId)) {
       selectionSet.delete(habitId);
     } else {
@@ -182,6 +194,7 @@ export function createHabitsPage(context) {
     }
 
     state.selectedHabitIds = [...selectionSet];
+
     if (!state.selectedHabitIds.length) {
       clearSelection();
     }
@@ -194,12 +207,19 @@ export function createHabitsPage(context) {
 
   function updateLogCollections(habitId, completed) {
     const matchesHabitAndDate = (log) => log.habit_id === habitId && log.log_date === state.selectedDate;
+
     state.selectedLogs = completed
-      ? [...state.selectedLogs.filter((log) => !matchesHabitAndDate(log)), { habit_id: habitId, log_date: state.selectedDate, completed: true }]
+      ? [
+          ...state.selectedLogs.filter((log) => !matchesHabitAndDate(log)),
+          { habit_id: habitId, log_date: state.selectedDate, completed: true }
+        ]
       : state.selectedLogs.filter((log) => !matchesHabitAndDate(log));
 
     state.recentLogs = completed
-      ? [...state.recentLogs.filter((log) => !matchesHabitAndDate(log)), { habit_id: habitId, log_date: state.selectedDate, completed: true }]
+      ? [
+          ...state.recentLogs.filter((log) => !matchesHabitAndDate(log)),
+          { habit_id: habitId, log_date: state.selectedDate, completed: true }
+        ]
       : state.recentLogs.filter((log) => !matchesHabitAndDate(log));
   }
 
@@ -224,6 +244,7 @@ export function createHabitsPage(context) {
   }
 
   async function changeSelectedDate(amount) {
+    const previousDate = state.selectedDate;
     state.selectedDate = startOfDayISO(addDays(getSelectedDateObject(), amount));
     clearSelection();
 
@@ -231,15 +252,22 @@ export function createHabitsPage(context) {
       await loadSelectedDateData();
       refreshContent();
     } catch (error) {
-      state.selectedDate = startOfDayISO(addDays(getSelectedDateObject(), -amount));
+      state.selectedDate = previousDate;
       context.toast.error(error.message || "Não foi possível carregar os hábitos deste dia.");
     }
   }
 
   async function persistHabit({ habit, payload }) {
-    const savedHabit = habit ? await habitsService.updateHabit(habit.id, payload) : await habitsService.createHabit(payload);
+    const savedHabit = habit
+      ? await habitsService.updateHabit(habit.id, payload)
+      : await habitsService.createHabit(payload);
+
     state.habits = habit
-      ? state.habits.map((item) => (item.id === habit.id ? { ...savedHabit, active_days: normalizeActiveDays(savedHabit.active_days) } : item))
+      ? state.habits.map((item) =>
+          item.id === habit.id
+            ? { ...savedHabit, active_days: normalizeActiveDays(savedHabit.active_days) }
+            : item
+        )
       : [...state.habits, { ...savedHabit, active_days: normalizeActiveDays(savedHabit.active_days) }];
 
     clearSelection();
@@ -250,6 +278,7 @@ export function createHabitsPage(context) {
 
   function getModalWeekdayMarkup(activeDays) {
     const selectedDays = normalizeActiveDays(activeDays);
+
     return `
       <div class="weekday-picker" id="weekday-picker">
         ${WEEKDAY_OPTIONS.map(
@@ -277,31 +306,98 @@ export function createHabitsPage(context) {
     });
   }
 
+  function bindIconPicker() {
+    const trigger = document.querySelector("#habit-icon-trigger");
+    const picker = document.querySelector("#habit-icon-picker");
+    const hiddenInput = document.querySelector('#habit-form input[name="icon"]');
+    const preview = document.querySelector("#selected-habit-icon");
+
+    if (!trigger || !picker || !hiddenInput || !preview) {
+      return;
+    }
+
+    const setExpanded = (expanded) => {
+      picker.hidden = !expanded;
+      trigger.setAttribute("aria-expanded", String(expanded));
+    };
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setExpanded(picker.hidden);
+    });
+
+    picker.querySelectorAll("[data-icon]").forEach((option) => {
+      option.addEventListener("click", () => {
+        const icon = option.dataset.icon || "✨";
+        hiddenInput.value = icon;
+        preview.textContent = icon;
+
+        picker.querySelectorAll(".habit-icon-option").forEach((buttonElement) => {
+          buttonElement.classList.toggle("is-selected", buttonElement === option);
+        });
+
+        setExpanded(false);
+      });
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".habit-title-group")) {
+        setExpanded(false);
+      }
+    });
+  }
+
   function readSelectedWeekdays() {
     return WEEKDAY_OPTIONS.filter((option) =>
-      document.querySelector(`.weekday-chip[data-day="${option.value}"]`)?.classList.contains("is-selected")
+      document
+        .querySelector(`.weekday-chip[data-day="${option.value}"]`)
+        ?.classList.contains("is-selected")
     ).map((option) => option.value);
   }
 
   function openHabitModal(habit = null) {
+    const selectedIcon = habit?.icon ?? "✨";
+
     context.modal.open({
       title: habit ? "Editar hábito" : "Novo hábito",
       description: "",
       content: `
         <form class="form-stack" id="habit-form">
+          <div class="habit-title-group">
+            <label>
+              Título
+              <div class="habit-title-field">
+                <input name="title" maxlength="80" value="${habit?.title ?? ""}" placeholder="Ex.: Ler 20 minutos" required />
+                <button
+                  type="button"
+                  class="habit-icon-trigger"
+                  id="habit-icon-trigger"
+                  aria-label="Escolher ícone"
+                  aria-expanded="false"
+                >
+                  <span id="selected-habit-icon">${selectedIcon}</span>
+                </button>
+                <input type="hidden" name="icon" value="${selectedIcon}" />
+              </div>
+            </label>
+            <div class="habit-icon-picker" id="habit-icon-picker" hidden>
+              ${EMOJI_OPTIONS.map(
+                (emoji) => `
+                  <button
+                    type="button"
+                    class="habit-icon-option ${selectedIcon === emoji ? "is-selected" : ""}"
+                    data-icon="${emoji}"
+                    aria-label="Selecionar ícone ${emoji}"
+                  >
+                    ${emoji}
+                  </button>
+                `
+              ).join("")}
+            </div>
+          </div>
           <div class="weekday-field">
             <span class="weekday-field__label">Frequência</span>
             ${getModalWeekdayMarkup(habit?.active_days)}
-          </div>
-          <label>
-            Título
-            <input name="title" maxlength="80" value="${habit?.title ?? ""}" placeholder="Ex.: Ler 20 minutos" required />
-          </label>
-          <div class="habit-icon-field">
-            <span class="habit-icon-field__label">Ícone</span>
-            <select class="habit-icon-field__select" name="icon" aria-label="Selecionar ícone do hábito">
-              ${EMOJI_OPTIONS.map((emoji) => `<option value="${emoji}" ${habit?.icon === emoji ? "selected" : ""}>${emoji}</option>`).join("")}
-            </select>
           </div>
         </form>
       `,
@@ -311,6 +407,7 @@ export function createHabitsPage(context) {
       `
     });
 
+    bindIconPicker();
     bindWeekdayPicker();
 
     document.querySelector("#habit-form").addEventListener("submit", async (event) => {
@@ -354,7 +451,10 @@ export function createHabitsPage(context) {
   function openDeleteHabitsModal(ids) {
     context.modal.open({
       title: ids.length > 1 ? "Excluir hábitos" : "Excluir hábito",
-      description: ids.length > 1 ? `Deseja remover ${ids.length} hábitos da sua rotina?` : "Deseja remover este hábito da sua rotina?",
+      description:
+        ids.length > 1
+          ? `Deseja remover ${ids.length} hábitos da sua rotina?`
+          : "Deseja remover este hábito da sua rotina?",
       content: "<p>Os hábitos serão desativados e deixarão de aparecer na lista.</p>",
       footer: `
         ${button("Cancelar", "ghost", 'type="button" data-close-modal')}
@@ -428,6 +528,7 @@ export function createHabitsPage(context) {
       }
 
       event.preventDefault();
+
       if (state.selectionMode) {
         toggleSelection(habitId);
         refreshContent(root);
@@ -456,6 +557,7 @@ export function createHabitsPage(context) {
       element.addEventListener("click", (event) => {
         event.stopPropagation();
         const habit = state.habits.find((item) => item.id === element.dataset.id);
+
         if (habit) {
           openHabitModal(habit);
         }
