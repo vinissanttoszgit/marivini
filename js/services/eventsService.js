@@ -9,11 +9,9 @@ function ensureClient() {
 
 async function listEventsByMonth({ startDate, endDate }) {
   ensureClient();
-  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("events")
     .select("*")
-    .eq("user_id", userId)
     .gte("event_date", startDate)
     .lte("event_date", endDate)
     .order("event_date", { ascending: true })
@@ -28,11 +26,9 @@ async function listEventsByMonth({ startDate, endDate }) {
 
 async function listEventsByDate(date) {
   ensureClient();
-  const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("events")
     .select("*")
-    .eq("user_id", userId)
     .eq("event_date", date)
     .order("event_time", { ascending: true });
 
