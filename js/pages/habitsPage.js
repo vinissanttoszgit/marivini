@@ -20,8 +20,7 @@ import { validateRequired } from "../utils/validators.js";
 const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "🌙"];
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const LONG_PRESS_MS = 500;
-const DRAG_THRESHOLD_PX = 8;
-const CLICK_GUARD_MS = 180;
+const CLICK_GUARD_MS = 900;
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "SEG" },
   { value: 2, label: "TER" },
@@ -44,7 +43,23 @@ export function createHabitsPage(context) {
   };
 
   let activeDrag = null;
+  let suppressNextHabitClick = false;
   let suppressClickUntil = 0;
+
+  function suppressUpcomingHabitClick(duration = CLICK_GUARD_MS) {
+    suppressNextHabitClick = true;
+    suppressClickUntil = Math.max(suppressClickUntil, Date.now() + duration);
+  }
+
+  function shouldSuppressHabitClick() {
+    if (Date.now() >= suppressClickUntil) {
+      suppressNextHabitClick = false;
+      suppressClickUntil = 0;
+      return false;
+    }
+
+    return suppressNextHabitClick || Date.now() < suppressClickUntil;
+  }
 
   function normalizeActiveDays(activeDays) {
     if (!Array.isArray(activeDays) || !activeDays.length) {
@@ -649,6 +664,7 @@ export function createHabitsPage(context) {
     }
 
     const rect = element.getBoundingClientRect();
+    const originalNextSibling = element.nextSibling;
     const placeholder = document.createElement("div");
     placeholder.className = "habit-drag-placeholder";
     placeholder.style.height = `${rect.height}px`;
@@ -671,10 +687,12 @@ export function createHabitsPage(context) {
       element,
       placeholder,
       list,
+      originalNextSibling,
       offsetX: clientX - rect.left,
       offsetY: clientY - rect.top
     };
 
+    suppressUpcomingHabitClick();
     element.setPointerCapture?.(pointerId);
     updateDraggedPosition(clientX, clientY);
   }
@@ -735,23 +753,18 @@ export function createHabitsPage(context) {
     }
   }
 
-  async function finishDrag(root) {
-    if (!activeDrag) {
+  function cleanupDragState(dragState) {
+    if (!dragState) {
       return;
     }
 
-    const { element, placeholder, list, pointerId } = activeDrag;
-    activeDrag = null;
-
-    suppressClickUntil = Date.now() + CLICK_GUARD_MS;
+    const { element, placeholder, list, pointerId } = dragState;
 
     if (element.hasPointerCapture?.(pointerId)) {
       element.releasePointerCapture(pointerId);
     }
 
-    list.insertBefore(element, placeholder);
-    placeholder.remove();
-
+    placeholder?.remove();
     element.classList.remove("is-dragging");
     list.classList.remove("is-reordering");
 
@@ -760,16 +773,46 @@ export function createHabitsPage(context) {
     element.style.left = "";
     element.style.top = "";
     element.style.transform = "";
+    element.style.transition = "";
 
     unlockDragScroll();
+  }
 
+  async function finishDrag(root) {
+    if (!activeDrag) {
+      return;
+    }
+
+    const dragState = activeDrag;
+    const { element, placeholder, list } = dragState;
+    activeDrag = null;
+    suppressUpcomingHabitClick();
+    list.insertBefore(element, placeholder);
+    cleanupDragState(dragState);
     await persistVisibleOrder(root, list);
+  }
+
+  function cancelDrag() {
+    if (!activeDrag) {
+      return;
+    }
+
+    const dragState = activeDrag;
+    const { element, list, originalNextSibling } = dragState;
+    activeDrag = null;
+
+    if (originalNextSibling && originalNextSibling.parentNode === list) {
+      list.insertBefore(element, originalNextSibling);
+    } else {
+      list.appendChild(element);
+    }
+
+    cleanupDragState(dragState);
   }
 
   function bindHabitCard(root, element) {
     const habitId = String(element.dataset.habitId);
     let pressTimer = null;
-    let longPressTriggered = false;
     let pointerSession = null;
 
     const clearPressTimer = () => {
@@ -782,7 +825,12 @@ export function createHabitsPage(context) {
     const cleanupSession = () => {
       clearPressTimer();
       pointerSession = null;
-      longPressTriggered = false;
+    };
+
+    const releasePointer = (pointerId) => {
+      if (element.hasPointerCapture?.(pointerId)) {
+        element.releasePointerCapture(pointerId);
+      }
     };
 
     element.addEventListener("pointerdown", (event) => {
@@ -796,12 +844,9 @@ export function createHabitsPage(context) {
         startY: event.clientY,
         lastX: event.clientX,
         lastY: event.clientY,
-        longPressFired: false,
-        dragging: false,
-        shouldSuppressClick: false
+        longPressFired: false
       };
 
-      longPressTriggered = false;
       element.setPointerCapture?.(event.pointerId);
 
       clearPressTimer();
@@ -811,16 +856,13 @@ export function createHabitsPage(context) {
         }
 
         pointerSession.longPressFired = true;
-        pointerSession.dragging = true;
-        pointerSession.shouldSuppressClick = true;
-        suppressClickUntil = Date.now() + 500;
+        suppressUpcomingHabitClick();
 
         if (!state.selectionMode) {
           enterSelectionMode(habitId);
-          syncSelectionUi(root);
         }
 
-        longPressTriggered = true;
+        syncSelectionUi(root);
         startDrag(root, element, event.pointerId, pointerSession.lastX, pointerSession.lastY);
       }, LONG_PRESS_MS);
     });
@@ -833,28 +875,14 @@ export function createHabitsPage(context) {
       pointerSession.lastX = event.clientX;
       pointerSession.lastY = event.clientY;
 
-      const deltaX = event.clientX - pointerSession.startX;
-      const deltaY = event.clientY - pointerSession.startY;
-
       if (activeDrag && activeDrag.pointerId === event.pointerId) {
         event.preventDefault();
         updateDraggedPosition(event.clientX, event.clientY);
         return;
       }
-
-      if (!pointerSession.longPressFired) {
-        return;
-      }
-
-      if (Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX && !activeDrag) {
-        event.preventDefault();
-        pointerSession.dragging = true;
-        pointerSession.shouldSuppressClick = true;
-        startDrag(root, element, event.pointerId, event.clientX, event.clientY);
-      }
     });
 
-    const handlePointerEnd = async (event) => {
+    element.addEventListener("pointerup", async (event) => {
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
       }
@@ -863,44 +891,50 @@ export function createHabitsPage(context) {
 
       if (wasDragging) {
         event.preventDefault();
+        suppressUpcomingHabitClick();
         await finishDrag(root);
         cleanupSession();
         return;
       }
 
       if (pointerSession.longPressFired) {
-        suppressClickUntil = Date.now() + 500;
-        if (element.hasPointerCapture?.(event.pointerId)) {
-          element.releasePointerCapture(event.pointerId);
-        }
+        event.preventDefault();
+        suppressUpcomingHabitClick();
+        releasePointer(event.pointerId);
         cleanupSession();
         return;
       }
 
-      if (element.hasPointerCapture?.(event.pointerId)) {
-        element.releasePointerCapture(event.pointerId);
+      releasePointer(event.pointerId);
+      cleanupSession();
+    });
+
+    element.addEventListener("pointercancel", (event) => {
+      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+        return;
+      }
+
+      suppressUpcomingHabitClick();
+
+      if (activeDrag && activeDrag.pointerId === event.pointerId) {
+        cancelDrag();
+      } else {
+        releasePointer(event.pointerId);
       }
 
       cleanupSession();
-    };
-
-    element.addEventListener("pointerup", handlePointerEnd);
-    element.addEventListener("pointercancel", handlePointerEnd);
+    });
 
     element.addEventListener("click", async (event) => {
       if (event.target.closest("[data-action='edit']")) {
         return;
       }
 
-      if (Date.now() < suppressClickUntil) {
+      if (shouldSuppressHabitClick()) {
         event.preventDefault();
         event.stopPropagation();
-        return;
-      }
-
-      if (longPressTriggered || pointerSession?.shouldSuppressClick) {
-        event.preventDefault();
-        event.stopPropagation();
+        suppressNextHabitClick = false;
+        suppressClickUntil = 0;
         return;
       }
 
