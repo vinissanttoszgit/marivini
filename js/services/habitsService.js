@@ -1,10 +1,21 @@
 import { isSupabaseConfigured, supabase } from "../config/supabase.js";
 import { getCurrentUserId } from "./authService.js";
 
+const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
+
 function ensureClient() {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error("Configure o Supabase em /js/config/supabase.js para usar os habitos.");
   }
+}
+
+function normalizeActiveDays(activeDays) {
+  if (!Array.isArray(activeDays) || !activeDays.length) {
+    return [...DEFAULT_ACTIVE_DAYS];
+  }
+
+  const uniqueDays = [...new Set(activeDays.map((day) => Number(day)).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+  return uniqueDays.length ? uniqueDays : [...DEFAULT_ACTIVE_DAYS];
 }
 
 async function listHabits() {
@@ -22,7 +33,10 @@ async function listHabits() {
     throw error;
   }
 
-  return data ?? [];
+  return (data ?? []).map((habit) => ({
+    ...habit,
+    active_days: normalizeActiveDays(habit.active_days)
+  }));
 }
 
 async function createHabit(payload) {
@@ -36,6 +50,7 @@ async function createHabit(payload) {
       description: payload.description || null,
       icon: payload.icon || "✨",
       position: payload.position ?? 0,
+      active_days: normalizeActiveDays(payload.active_days),
       is_active: true
     })
     .select()
@@ -45,7 +60,10 @@ async function createHabit(payload) {
     throw error;
   }
 
-  return data;
+  return {
+    ...data,
+    active_days: normalizeActiveDays(data?.active_days)
+  };
 }
 
 async function updateHabit(id, payload) {
@@ -56,6 +74,7 @@ async function updateHabit(id, payload) {
       title: payload.title,
       description: payload.description || null,
       icon: payload.icon || "✨",
+      active_days: normalizeActiveDays(payload.active_days),
       updated_at: new Date().toISOString()
     })
     .eq("id", id)
@@ -66,7 +85,10 @@ async function updateHabit(id, payload) {
     throw error;
   }
 
-  return data;
+  return {
+    ...data,
+    active_days: normalizeActiveDays(data?.active_days)
+  };
 }
 
 async function deleteHabit(id) {
@@ -77,9 +99,22 @@ async function deleteHabit(id) {
   }
 }
 
+async function deleteHabits(ids) {
+  ensureClient();
+  if (!ids?.length) {
+    return;
+  }
+
+  const { error } = await supabase.from("habits").update({ is_active: false }).in("id", ids);
+  if (error) {
+    throw error;
+  }
+}
+
 export default {
   listHabits,
   createHabit,
   updateHabit,
-  deleteHabit
+  deleteHabit,
+  deleteHabits
 };

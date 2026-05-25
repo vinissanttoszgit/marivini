@@ -37,17 +37,54 @@
   background: var(--color-text);
 }
 
+.habit-date-nav,
+.habit-selection-bar {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.habit-date-nav__label {
+  text-align: center;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: capitalize;
+}
+
+.habit-selection-bar {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .habit-list {
   display: grid;
   gap: var(--space-3);
 }
 
 .habit-card {
-  padding: 16px;
+  padding: 14px 16px;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
+  gap: 12px;
   align-items: center;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.habit-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-text) 50%, white);
+  outline-offset: 2px;
+}
+
+.habit-card.is-complete {
+  background: color-mix(in srgb, var(--color-primary) 6%, white);
+}
+
+.habit-card.is-selected {
+  border-color: var(--color-text);
+  box-shadow: inset 0 0 0 1px var(--color-text);
 }
 
 .habit-card__check {
@@ -58,11 +95,24 @@
   display: grid;
   place-items: center;
   color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  background: transparent;
+  flex-shrink: 0;
 }
 
-.habit-card__check.is-complete {
+.habit-card.is-complete .habit-card__check,
+.habit-card.is-selected .habit-card__check {
   background: var(--color-text);
   border-color: var(--color-text);
+}
+
+.habit-card__content {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
 }
 
 .habit-card__icon {
@@ -77,8 +127,9 @@
 }
 
 .habit-card__main {
+  min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .habit-card__title {
@@ -89,13 +140,29 @@
 
 .habit-card__description {
   font-size: 0.88rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.habit-card__meta {
+  display: grid;
+  gap: 6px;
 }
 
 .habit-card__badges {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 4px;
+}
+
+.habit-card__days {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
 }
 
 .status-risk,
@@ -124,5 +191,47 @@
 
 .habit-card__actions {
   display: grid;
+  align-self: start;
+}
+
+.habit-card__menu {
+  width: 40px;
+  height: 40px;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.weekday-field {
+  display: grid;
+  gap: 10px;
+}
+
+.weekday-field__label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.weekday-picker {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.weekday-chip {
+  min-width: 52px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.weekday-chip.is-selected {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: #fff;
 }

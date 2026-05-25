@@ -1,11 +1,11 @@
-export function progressCard({ completed, total }) {
+export function progressCard({ completed, total, label = "Hoje" }) {
   const percentage = total ? Math.round((completed / total) * 100) : 0;
 
   return `
     <section class="card progress-card">
       <div class="progress-card__top">
         <div>
-          <p class="eyebrow">Hoje</p>
+          <p class="eyebrow">${label}</p>
           <div class="progress-card__value">${percentage}%</div>
         </div>
         <div class="pill">${completed}/${total} concluídos</div>

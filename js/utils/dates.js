@@ -8,6 +8,10 @@ export function addDays(date, amount) {
   return next;
 }
 
+export function parseISODate(isoDate) {
+  return new Date(`${isoDate}T12:00:00`);
+}
+
 export function startOfDayISO(date) {
   return new Date(date).toLocaleDateString("en-CA");
 }
@@ -18,6 +22,10 @@ export function endOfDayISO(date) {
 
 export function isSameDate(left, right) {
   return left === right;
+}
+
+export function getWeekdayIndex(isoDate) {
+  return parseISODate(isoDate).getDay();
 }
 
 export function shiftMonth(date, amount) {
@@ -32,12 +40,28 @@ export function formatMonthYear(date) {
 }
 
 export function formatLongDate(isoDate) {
-  const date = new Date(`${isoDate}T12:00:00`);
+  const date = parseISODate(isoDate);
   return new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
     day: "numeric",
     month: "long"
   }).format(date);
+}
+
+export function formatHabitDateLabel(isoDate) {
+  if (isSameDate(isoDate, todayISO())) {
+    return "Hoje";
+  }
+
+  if (isSameDate(isoDate, startOfDayISO(addDays(new Date(), -1)))) {
+    return "Ontem";
+  }
+
+  if (isSameDate(isoDate, startOfDayISO(addDays(new Date(), 1)))) {
+    return "Amanhã";
+  }
+
+  return formatLongDate(isoDate);
 }
 
 export function formatTimeLabel(value) {
