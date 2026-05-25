@@ -84,7 +84,7 @@ export function createHabitsPage(context) {
       subtitle: ""
     });
 
-    root.innerHTML = loadingState("Montando sua rotina...");
+    root.innerHTML = loadingState();
 
     try {
       await load();

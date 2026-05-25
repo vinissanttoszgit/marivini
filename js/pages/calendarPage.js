@@ -37,10 +37,10 @@ export function createCalendarPage(context) {
     context.setHeader({
       eyebrow: "",
       title: "Calendário",
-      subtitle: "Eventos e lembretes"
+      subtitle: ""
     });
 
-    root.innerHTML = loadingState("Sincronizando seu calendário...");
+    root.innerHTML = loadingState();
 
     try {
       await loadMonth();

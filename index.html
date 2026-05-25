@@ -24,15 +24,24 @@
       <div class="app-shell" id="app-shell">
         <header class="app-header">
           <div>
-            <p class="eyebrow" id="page-eyebrow">Marivini</p>
-            <h1 class="page-title" id="page-title">Carregando...</h1>
-            <p class="page-subtitle" id="page-subtitle"></p>
+            <p class="eyebrow" id="page-eyebrow" hidden></p>
+            <h1 class="page-title page-title--flush" id="page-title">Hábitos</h1>
+            <p class="page-subtitle" id="page-subtitle" hidden></p>
           </div>
           <button class="icon-button" id="settings-trigger" aria-label="Abrir configurações">
             <span>⚙️</span>
           </button>
         </header>
-        <main class="page-content" id="page-root" aria-live="polite"></main>
+        <main class="page-content" id="page-root" aria-live="polite">
+          <div class="card loading-state">
+            <div class="loading-state__header">
+              <div class="loading-state__line loading-state__line--title"></div>
+              <div class="loading-state__line loading-state__line--pill"></div>
+            </div>
+            <div class="loading-state__line loading-state__line--body"></div>
+            <div class="loading-state__line loading-state__line--body loading-state__line--short"></div>
+          </div>
+        </main>
         <nav id="bottom-nav"></nav>
       </div>
     </div>
@@ -40,6 +49,15 @@
     <div id="modal-root"></div>
     <div id="toast-root"></div>
 
+    <script>
+      (function () {
+        const activeTab = window.localStorage.getItem("marivini:active-tab");
+        const pageTitle = document.getElementById("page-title");
+        if (activeTab === "calendar" && pageTitle) {
+          pageTitle.textContent = "Calendário";
+        }
+      })();
+    </script>
     <script type="module" src="./js/app.js"></script>
   </body>
 </html>

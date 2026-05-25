@@ -9,6 +9,7 @@ import { createCalendarPage } from "./pages/calendarPage.js";
 import { openSettingsModal } from "./pages/settingsPage.js";
 import { qs, setText } from "./utils/dom.js";
 
+const ACTIVE_TAB_KEY = "marivini:active-tab";
 const pageRoot = qs("#page-root");
 const navRoot = qs("#bottom-nav");
 const pageEyebrow = qs("#page-eyebrow");
@@ -36,7 +37,9 @@ const pages = {
   calendar: createCalendarPage(context)
 };
 
-let activeTab = "habits";
+let activeTab = getStoredTab();
+
+setInitialShell(activeTab);
 
 init();
 
@@ -75,6 +78,7 @@ function renderNav() {
       activeTab,
       onNavigate: async (tab) => {
         activeTab = tab;
+        storeTab(tab);
         renderNav();
         await renderCurrentTab();
       }
@@ -84,4 +88,29 @@ function renderNav() {
 
 async function renderCurrentTab() {
   await pages[activeTab].render(pageRoot);
+}
+
+function getStoredTab() {
+  const storedTab = window.localStorage.getItem(ACTIVE_TAB_KEY);
+  return storedTab === "calendar" ? "calendar" : "habits";
+}
+
+function storeTab(tab) {
+  window.localStorage.setItem(ACTIVE_TAB_KEY, tab);
+}
+
+function setInitialShell(tab) {
+  if (tab === "calendar") {
+    context.setHeader({
+      eyebrow: "",
+      title: "Calendário",
+      subtitle: ""
+    });
+  } else {
+    context.setHeader({
+      eyebrow: "",
+      title: "Hábitos",
+      subtitle: ""
+    });
+  }
 }
