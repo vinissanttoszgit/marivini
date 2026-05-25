@@ -375,8 +375,6 @@ export function createHabitsPage(context) {
     await habitsService.deleteHabits(ids);
     const deletedIds = new Set(ids);
     state.habits = state.habits.filter((habit) => !deletedIds.has(habit.id));
-    state.selectedLogs = state.selectedLogs.filter((log) => !deletedIds.has(log.habit_id));
-    state.recentLogs = state.recentLogs.filter((log) => !deletedIds.has(log.habit_id));
     clearSelection();
     refreshContent();
   }

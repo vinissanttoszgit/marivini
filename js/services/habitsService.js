@@ -19,15 +19,24 @@ function normalizeActiveDays(activeDays) {
 }
 
 async function listHabits() {
+  return listHabitsIncludingInactive({ onlyActive: true });
+}
+
+async function listHabitsIncludingInactive({ onlyActive = false } = {}) {
   ensureClient();
   const userId = await getCurrentUserId();
-  const { data, error } = await supabase
+  let query = supabase
     .from("habits")
     .select("*")
     .eq("user_id", userId)
-    .eq("is_active", true)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
+
+  if (onlyActive) {
+    query = query.eq("is_active", true);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;
@@ -113,6 +122,7 @@ async function deleteHabits(ids) {
 
 export default {
   listHabits,
+  listHabitsIncludingInactive,
   createHabit,
   updateHabit,
   deleteHabit,
