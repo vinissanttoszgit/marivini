@@ -66,9 +66,7 @@
 .habit-card {
   padding: 14px 16px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  align-items: start;
+  gap: 10px;
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
@@ -84,6 +82,13 @@
 .habit-card.is-selected {
   border-color: var(--color-primary);
   box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.habit-card__main-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: start;
 }
 
 .habit-card__check {
@@ -109,16 +114,10 @@
 
 .habit-card__body {
   min-width: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.habit-card__top {
-  min-width: 0;
-  display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
   align-items: center;
+  display: grid;
 }
 
 .habit-card__icon {
@@ -157,16 +156,19 @@
   flex-wrap: wrap;
 }
 
-.habit-card__streak,
-.habit-card__days,
-.habit-card__status {
+.habit-card__chip,
+.habit-card__days {
   font-size: 0.77rem;
   font-weight: 700;
   line-height: 1.2;
 }
 
-.habit-card__streak {
-  color: var(--color-text);
+.habit-card__chip {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
 }
 
 .habit-card__days {
@@ -176,18 +178,22 @@
 
 .habit-card__status {
   flex-shrink: 0;
-  color: var(--color-muted);
 }
 
 .status-risk {
+  background: var(--color-danger-soft);
+  border-color: color-mix(in srgb, var(--color-danger) 16%, white);
   color: var(--color-danger);
 }
 
 .status-warning {
+  background: var(--color-warning-soft);
+  border-color: color-mix(in srgb, var(--color-warning) 18%, white);
   color: var(--color-warning);
 }
 
 .status-safe {
+  background: var(--color-surface-soft);
   color: var(--color-muted);
 }
 
