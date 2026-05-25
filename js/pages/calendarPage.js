@@ -94,7 +94,6 @@ export function createCalendarPage(context) {
               })
         }
       </div>
-      <button class="floating-action" id="floating-add-event" aria-label="Adicionar evento">+</button>
     `;
   }
 
@@ -117,7 +116,6 @@ export function createCalendarPage(context) {
       });
     });
 
-    root.querySelector("#floating-add-event")?.addEventListener("click", () => openEventModal());
     root.querySelector("#empty-create-event")?.addEventListener("click", () => openEventModal());
 
     root.querySelectorAll("[data-action='edit-event']").forEach((element) => {
@@ -228,5 +226,10 @@ export function createCalendarPage(context) {
     });
   }
 
-  return { render };
+  return {
+    render,
+    openCreateEventModal() {
+      openEventModal();
+    }
+  };
 }

@@ -68,15 +68,15 @@ async function init() {
 }
 
 function bindGlobalActions() {
-  qs("#header-add-habit-trigger").addEventListener("click", async () => {
-    if (activeTab !== "habits") {
-      activeTab = "habits";
-      storeTab(activeTab);
-      renderNav();
-      await renderCurrentTab();
+  qs("#header-add-habit-trigger").addEventListener("click", () => {
+    if (activeTab === "habits") {
+      pages.habits.openCreateHabitModal();
+      return;
     }
 
-    pages.habits.openCreateHabitModal();
+    if (activeTab === "calendar") {
+      pages.calendar.openCreateEventModal();
+    }
   });
 }
 
