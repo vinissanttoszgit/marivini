@@ -136,12 +136,12 @@ export function createHabitsPage(context) {
 
     return `
       <div class="page-stack">
-        ${progressCard({ completed, total: visibleHabits.length, label: getDateLabel() })}
         <section class="card habit-date-nav" aria-label="Selecionar data">
           <button class="icon-button" id="prev-habit-date" aria-label="Dia anterior">‹</button>
           <div class="habit-date-nav__label">${getDateLabel()}</div>
           <button class="icon-button" id="next-habit-date" aria-label="Próximo dia">›</button>
         </section>
+        ${progressCard({ completed, total: visibleHabits.length })}
         ${
           state.selectionMode
             ? `<section class="card habit-selection-bar">
