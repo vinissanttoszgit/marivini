@@ -1,18 +1,7 @@
-function getCompactStatus(streakData) {
-  if (streakData.missedTwoDaysRisk) {
-    return "Não falhar";
-  }
-
-  return "";
-}
-
 export function habitCard({ habit, isCompleted, streakData, isSelectionMode = false, isSelected = false }) {
-  const statusClass = streakData.missedTwoDaysRisk ? "status-risk" : "status-safe";
-  const statusLabel = getCompactStatus(streakData);
-
   return `
     <article
-      class="card habit-card ${isCompleted ? "is-complete" : ""} ${isSelectionMode ? "is-selection-mode" : ""} ${isSelected ? "is-selected" : ""}"
+      class="card habit-card ${streakData.missedTwoDaysRisk ? "is-risk" : ""} ${isCompleted ? "is-complete" : ""} ${isSelectionMode ? "is-selection-mode" : ""} ${isSelected ? "is-selected" : ""}"
       data-habit-id="${habit.id}"
       tabindex="0"
       role="button"
@@ -27,7 +16,6 @@ export function habitCard({ habit, isCompleted, streakData, isSelectionMode = fa
           <div class="habit-card__icon">${habit.icon || "✨"}</div>
           <div class="habit-card__text">
             <h3 class="habit-card__title">${habit.title}</h3>
-            ${statusLabel ? `<span class="habit-card__chip habit-card__status ${statusClass}">${statusLabel}</span>` : ""}
           </div>
         </div>
         <div class="habit-card__actions">
