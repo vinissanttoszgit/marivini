@@ -20,6 +20,7 @@ import { validateRequired } from "../utils/validators.js";
 const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "🌙"];
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const LONG_PRESS_MS = 500;
+const DRAG_THRESHOLD_PX = 8;
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "SEG" },
   { value: 2, label: "TER" },
@@ -36,8 +37,9 @@ export function createHabitsPage(context) {
     selectedLogs: [],
     recentLogs: [],
     selectedDate: todayISO(),
+    selectedHabitIds: [],
     selectionMode: false,
-    selectedHabitIds: []
+    reorderSyncPending: false
   };
 
   function normalizeActiveDays(activeDays) {
@@ -57,11 +59,24 @@ export function createHabitsPage(context) {
   }
 
   function getSelectionSet() {
-    return new Set(state.selectedHabitIds);
+    return new Set(state.selectedHabitIds.map(String));
   }
 
   function getSelectedDateObject() {
     return parseISODate(state.selectedDate);
+  }
+
+  function getVisibleHabits() {
+    const weekday = getWeekdayIndex(state.selectedDate);
+    return state.habits.filter((habit) => normalizeActiveDays(habit.active_days).includes(weekday));
+  }
+
+  function getCompletedIds() {
+    return new Set(state.selectedLogs.filter((log) => log.completed).map((log) => String(log.habit_id)));
+  }
+
+  function getDateLabel() {
+    return formatHabitDateLabel(state.selectedDate);
   }
 
   async function loadHabits() {
@@ -73,6 +88,7 @@ export function createHabitsPage(context) {
 
   async function loadSelectedDateData() {
     const selectedDateObject = getSelectedDateObject();
+
     state.selectedLogs = await habitLogsService.listLogsByDate(state.selectedDate);
     state.recentLogs = await habitLogsService.listLogsRange({
       startDate: startOfDayISO(addDays(selectedDateObject, -14)),
@@ -106,27 +122,27 @@ export function createHabitsPage(context) {
     }
   }
 
-  function getCompletedIds() {
-    return new Set(state.selectedLogs.filter((log) => log.completed).map((log) => log.habit_id));
-  }
+  function getSelectionBarMarkup() {
+    if (!state.selectionMode) {
+      return "";
+    }
 
-  function getVisibleHabits() {
-    const weekday = getWeekdayIndex(state.selectedDate);
-    return state.habits.filter((habit) => normalizeActiveDays(habit.active_days).includes(weekday));
-  }
-
-  function getDateLabel() {
-    return formatHabitDateLabel(state.selectedDate);
+    return `
+      <section class="habit-selection-floating-bar" aria-label="Ações dos hábitos selecionados">
+        ${button("Cancelar", "ghost", 'type="button" id="cancel-habit-selection"')}
+        ${button(`Excluir ${state.selectedHabitIds.length}`, "danger", `type="button" id="delete-selected-habits" ${state.selectedHabitIds.length ? "" : "disabled"}`)}
+      </section>
+    `;
   }
 
   function getMarkup() {
     const visibleHabits = getVisibleHabits();
     const completedIds = getCompletedIds();
-    const completed = visibleHabits.filter((habit) => completedIds.has(habit.id)).length;
+    const completed = visibleHabits.filter((habit) => completedIds.has(String(habit.id))).length;
     const selectionSet = getSelectionSet();
 
     return `
-      <div class="page-stack">
+      <div class="page-stack ${state.selectionMode ? "page-stack--selection-mode" : ""}">
         <section class="card habit-date-nav" aria-label="Selecionar data">
           <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-date" aria-label="Dia anterior"></button>
           <div class="habit-date-nav__label">${getDateLabel()}</div>
@@ -134,26 +150,18 @@ export function createHabitsPage(context) {
         </section>
         ${progressCard({ completed, total: visibleHabits.length })}
         ${
-          state.selectionMode
-            ? `<section class="card habit-selection-bar">
-                ${button("Cancelar", "ghost", 'type="button" id="cancel-habit-selection"')}
-                ${button(`Excluir ${selectionSet.size}`, "danger", `type="button" id="delete-selected-habits" ${selectionSet.size ? "" : "disabled"}`)}
-              </section>`
-            : ""
-        }
-        ${
           visibleHabits.length
-            ? `<section class="habit-list">${visibleHabits
+            ? `<section class="habit-list ${state.selectionMode ? "is-reorder-enabled" : ""}">${visibleHabits
                 .map((habit) =>
                   habitCard({
                     habit,
-                    isCompleted: completedIds.has(habit.id),
+                    isCompleted: completedIds.has(String(habit.id)),
                     streakData: calculateHabitStatus(
-                      state.recentLogs.filter((log) => log.habit_id === habit.id),
+                      state.recentLogs.filter((log) => String(log.habit_id) === String(habit.id)),
                       state.selectedDate
                     ),
                     isSelectionMode: state.selectionMode,
-                    isSelected: selectionSet.has(habit.id)
+                    isSelected: selectionSet.has(String(habit.id))
                   })
                 )
                 .join("")}</section>`
@@ -171,6 +179,7 @@ export function createHabitsPage(context) {
               })
         }
       </div>
+      ${getSelectionBarMarkup()}
     `;
   }
 
@@ -186,11 +195,12 @@ export function createHabitsPage(context) {
 
   function toggleSelection(habitId) {
     const selectionSet = getSelectionSet();
+    const normalizedId = String(habitId);
 
-    if (selectionSet.has(habitId)) {
-      selectionSet.delete(habitId);
+    if (selectionSet.has(normalizedId)) {
+      selectionSet.delete(normalizedId);
     } else {
-      selectionSet.add(habitId);
+      selectionSet.add(normalizedId);
     }
 
     state.selectedHabitIds = [...selectionSet];
@@ -202,11 +212,13 @@ export function createHabitsPage(context) {
 
   function enterSelectionMode(habitId) {
     state.selectionMode = true;
-    state.selectedHabitIds = [habitId];
+    state.selectedHabitIds = [String(habitId)];
   }
 
   function updateLogCollections(habitId, completed) {
-    const matchesHabitAndDate = (log) => log.habit_id === habitId && log.log_date === state.selectedDate;
+    const normalizedId = String(habitId);
+    const matchesHabitAndDate = (log) =>
+      String(log.habit_id) === normalizedId && log.log_date === state.selectedDate;
 
     state.selectedLogs = completed
       ? [
@@ -225,7 +237,8 @@ export function createHabitsPage(context) {
 
   async function handleToggleHabit(habitId) {
     const completedIds = getCompletedIds();
-    const willComplete = !completedIds.has(habitId);
+    const normalizedId = String(habitId);
+    const willComplete = !completedIds.has(normalizedId);
 
     updateLogCollections(habitId, willComplete);
     refreshContent();
@@ -260,11 +273,14 @@ export function createHabitsPage(context) {
   async function persistHabit({ habit, payload }) {
     const savedHabit = habit
       ? await habitsService.updateHabit(habit.id, payload)
-      : await habitsService.createHabit(payload);
+      : await habitsService.createHabit({
+          ...payload,
+          position: state.habits.length
+        });
 
     state.habits = habit
       ? state.habits.map((item) =>
-          item.id === habit.id
+          String(item.id) === String(habit.id)
             ? { ...savedHabit, active_days: normalizeActiveDays(savedHabit.active_days) }
             : item
         )
@@ -442,8 +458,9 @@ export function createHabitsPage(context) {
 
   async function removeHabits(ids) {
     await habitsService.deleteHabits(ids);
-    const deletedIds = new Set(ids);
-    state.habits = state.habits.filter((habit) => !deletedIds.has(habit.id));
+    const deletedIds = new Set(ids.map(String));
+
+    state.habits = state.habits.filter((habit) => !deletedIds.has(String(habit.id)));
     clearSelection();
     refreshContent();
   }
@@ -473,10 +490,116 @@ export function createHabitsPage(context) {
     });
   }
 
+  function captureCardRects(list) {
+    return new Map(
+      [...list.querySelectorAll("[data-habit-id]")].map((element) => [
+        element.dataset.habitId,
+        element.getBoundingClientRect()
+      ])
+    );
+  }
+
+  function animateCardPositions(list, previousRects, skipId = null) {
+    list.querySelectorAll("[data-habit-id]").forEach((element) => {
+      const habitId = element.dataset.habitId;
+      if (habitId === skipId) {
+        return;
+      }
+
+      const previousRect = previousRects.get(habitId);
+      if (!previousRect) {
+        return;
+      }
+
+      const nextRect = element.getBoundingClientRect();
+      const deltaY = previousRect.top - nextRect.top;
+
+      if (!deltaY) {
+        return;
+      }
+
+      element.style.transition = "none";
+      element.style.transform = `translateY(${deltaY}px)`;
+
+      requestAnimationFrame(() => {
+        element.style.transition = "transform 180ms ease";
+        element.style.transform = "";
+
+        window.setTimeout(() => {
+          if (!element.classList.contains("is-dragging")) {
+            element.style.transition = "";
+          }
+        }, 200);
+      });
+    });
+  }
+
+  function getDropAnchor(list, draggedElement, clientY) {
+    const siblings = [...list.querySelectorAll("[data-habit-id]")].filter((element) => element !== draggedElement);
+
+    for (const sibling of siblings) {
+      const rect = sibling.getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) {
+        return sibling;
+      }
+    }
+
+    return null;
+  }
+
+  function applyVisibleOrder(orderedVisibleIds) {
+    const visibleMap = new Map(getVisibleHabits().map((habit) => [String(habit.id), habit]));
+    const reorderedVisibleHabits = orderedVisibleIds
+      .map((habitId) => visibleMap.get(String(habitId)))
+      .filter(Boolean);
+    const orderedVisibleSet = new Set(orderedVisibleIds.map(String));
+    let visibleIndex = 0;
+
+    state.habits = state.habits
+      .map((habit) =>
+        orderedVisibleSet.has(String(habit.id)) ? reorderedVisibleHabits[visibleIndex++] : habit
+      )
+      .map((habit, index) => ({
+        ...habit,
+        position: index
+      }));
+  }
+
+  async function persistVisibleOrderFromDom(root, list, draggedElement) {
+    if (state.reorderSyncPending) {
+      return;
+    }
+
+    const previousHabits = state.habits.map((habit) => ({ ...habit }));
+    const orderedVisibleIds = [...list.querySelectorAll("[data-habit-id]")].map(
+      (element) => element.dataset.habitId
+    );
+
+    applyVisibleOrder(orderedVisibleIds);
+    state.reorderSyncPending = true;
+
+    try {
+      await habitsService.reorderHabits(state.habits);
+    } catch (error) {
+      state.habits = previousHabits;
+      refreshContent(root);
+      context.toast.error(error.message || "Não foi possível salvar a nova ordem.");
+      return;
+    } finally {
+      state.reorderSyncPending = false;
+    }
+
+    draggedElement.dataset.justDragged = "true";
+    window.setTimeout(() => {
+      delete draggedElement.dataset.justDragged;
+    }, 120);
+  }
+
   function bindHabitCard(root, element) {
-    const habitId = element.dataset.habitId;
+    const habitId = String(element.dataset.habitId);
     let pressTimer = null;
     let longPressTriggered = false;
+    let dragSession = null;
 
     const clearPressTimer = () => {
       if (pressTimer) {
@@ -485,13 +608,65 @@ export function createHabitsPage(context) {
       }
     };
 
+    const endDragSession = async (event) => {
+      if (!dragSession) {
+        return;
+      }
+
+      clearPressTimer();
+
+      const session = dragSession;
+      dragSession = null;
+
+      if (session.pointerId !== null && element.hasPointerCapture?.(session.pointerId)) {
+        element.releasePointerCapture(session.pointerId);
+      }
+
+      if (!session.dragging) {
+        return;
+      }
+
+      const list = root.querySelector(".habit-list");
+      if (!list) {
+        return;
+      }
+
+      element.classList.remove("is-dragging");
+      element.style.transition = "transform 180ms ease";
+      element.style.transform = "";
+      list.classList.remove("is-reordering");
+
+      window.setTimeout(() => {
+        element.style.transition = "";
+      }, 200);
+
+      if (event) {
+        event.preventDefault();
+      }
+
+      await persistVisibleOrderFromDom(root, list, element);
+    };
+
     element.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || event.target.closest("[data-action='edit']") || state.selectionMode) {
+      if (event.button !== 0 || event.target.closest("[data-action='edit']")) {
         return;
       }
 
       longPressTriggered = false;
       clearPressTimer();
+
+      if (state.selectionMode) {
+        dragSession = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          dragging: false
+        };
+
+        element.setPointerCapture?.(event.pointerId);
+        return;
+      }
+
       pressTimer = setTimeout(() => {
         longPressTriggered = true;
         enterSelectionMode(habitId);
@@ -499,12 +674,69 @@ export function createHabitsPage(context) {
       }, LONG_PRESS_MS);
     });
 
-    ["pointerup", "pointerleave", "pointercancel"].forEach((eventName) => {
-      element.addEventListener(eventName, clearPressTimer);
+    element.addEventListener("pointermove", (event) => {
+      if (!dragSession || dragSession.pointerId !== event.pointerId || event.target.closest("[data-action='edit']")) {
+        return;
+      }
+
+      const deltaX = event.clientX - dragSession.startX;
+      const deltaY = event.clientY - dragSession.startY;
+
+      if (!dragSession.dragging && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+
+      const list = root.querySelector(".habit-list");
+      if (!list) {
+        return;
+      }
+
+      if (!dragSession.dragging) {
+        dragSession.dragging = true;
+        element.classList.add("is-dragging");
+        list.classList.add("is-reordering");
+      }
+
+      event.preventDefault();
+      element.style.transform = `translateY(${deltaY}px)`;
+
+      const anchor = getDropAnchor(list, element, event.clientY);
+      const currentNext = element.nextElementSibling;
+      const shouldMove =
+        (anchor && anchor !== element && anchor !== currentNext) ||
+        (!anchor && list.lastElementChild !== element);
+
+      if (!shouldMove) {
+        return;
+      }
+
+      const previousRects = captureCardRects(list);
+
+      if (anchor) {
+        list.insertBefore(element, anchor);
+      } else {
+        list.appendChild(element);
+      }
+
+      animateCardPositions(list, previousRects, habitId);
+      element.style.transform = `translateY(${deltaY}px)`;
+    });
+
+    element.addEventListener("pointerup", endDragSession);
+    element.addEventListener("pointercancel", endDragSession);
+    element.addEventListener("pointerleave", () => {
+      if (!state.selectionMode) {
+        clearPressTimer();
+      }
     });
 
     element.addEventListener("click", async (event) => {
       if (event.target.closest("[data-action='edit']")) {
+        return;
+      }
+
+      if (element.dataset.justDragged === "true") {
+        delete element.dataset.justDragged;
         return;
       }
 
@@ -556,7 +788,7 @@ export function createHabitsPage(context) {
     root.querySelectorAll("[data-action='edit']").forEach((element) => {
       element.addEventListener("click", (event) => {
         event.stopPropagation();
-        const habit = state.habits.find((item) => item.id === element.dataset.id);
+        const habit = state.habits.find((item) => String(item.id) === String(element.dataset.id));
 
         if (habit) {
           openHabitModal(habit);

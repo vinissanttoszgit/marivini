@@ -33,8 +33,7 @@
   background: var(--color-primary);
 }
 
-.habit-date-nav,
-.habit-selection-bar {
+.habit-date-nav {
   padding: 12px;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -73,13 +72,13 @@
   transform: translate(-60%, -50%) rotate(45deg);
 }
 
-.habit-selection-bar {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .habit-list {
   display: grid;
   gap: var(--space-4);
+}
+
+.page-stack--selection-mode {
+  padding-bottom: calc(var(--bottom-nav-height) + 84px);
 }
 
 .habit-card {
@@ -87,7 +86,12 @@
   padding: 22px 16px;
   display: grid;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  will-change: transform;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .habit-card:focus-visible {
@@ -117,6 +121,27 @@
 .habit-card.is-selected {
   border-color: var(--color-primary);
   box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.habit-list.is-reorder-enabled .habit-card {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.habit-list.is-reordering .habit-card:not(.is-dragging) {
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.habit-card.is-dragging {
+  cursor: grabbing;
+  z-index: 3;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.14);
 }
 
 .habit-card__main-row {
@@ -188,6 +213,24 @@
   height: 38px;
   font-size: 1.35rem;
   line-height: 1;
+}
+
+.habit-selection-floating-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-3));
+  transform: translateX(-50%);
+  width: min(390px, calc(100% - 32px));
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(251, 251, 250, 0.96);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-soft);
+  z-index: 30;
 }
 
 .weekday-field {

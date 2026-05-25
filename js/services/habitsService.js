@@ -5,7 +5,7 @@ const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 
 function ensureClient() {
   if (!isSupabaseConfigured || !supabase) {
-    throw new Error("Configure o Supabase em /js/config/supabase.js para usar os habitos.");
+    throw new Error("Configure o Supabase em /js/config/supabase.js para usar os hábitos.");
   }
 }
 
@@ -14,7 +14,14 @@ function normalizeActiveDays(activeDays) {
     return [...DEFAULT_ACTIVE_DAYS];
   }
 
-  const uniqueDays = [...new Set(activeDays.map((day) => Number(day)).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+  const uniqueDays = [
+    ...new Set(
+      activeDays
+        .map((day) => Number(day))
+        .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    )
+  ];
+
   return uniqueDays.length ? uniqueDays : [...DEFAULT_ACTIVE_DAYS];
 }
 
@@ -25,6 +32,7 @@ async function listHabits() {
 async function listHabitsIncludingInactive({ onlyActive = false } = {}) {
   ensureClient();
   const userId = await getCurrentUserId();
+
   let query = supabase
     .from("habits")
     .select("*")
@@ -51,6 +59,7 @@ async function listHabitsIncludingInactive({ onlyActive = false } = {}) {
 async function createHabit(payload) {
   ensureClient();
   const userId = await getCurrentUserId();
+
   const { data, error } = await supabase
     .from("habits")
     .insert({
@@ -77,6 +86,7 @@ async function createHabit(payload) {
 
 async function updateHabit(id, payload) {
   ensureClient();
+
   const { data, error } = await supabase
     .from("habits")
     .update({
@@ -102,7 +112,9 @@ async function updateHabit(id, payload) {
 
 async function deleteHabit(id) {
   ensureClient();
+
   const { error } = await supabase.from("habits").update({ is_active: false }).eq("id", id);
+
   if (error) {
     throw error;
   }
@@ -110,13 +122,40 @@ async function deleteHabit(id) {
 
 async function deleteHabits(ids) {
   ensureClient();
+
   if (!ids?.length) {
     return;
   }
 
   const { error } = await supabase.from("habits").update({ is_active: false }).in("id", ids);
+
   if (error) {
     throw error;
+  }
+}
+
+async function reorderHabits(orderedHabits) {
+  ensureClient();
+
+  if (!orderedHabits?.length) {
+    return;
+  }
+
+  const results = await Promise.all(
+    orderedHabits.map((habit, index) =>
+      supabase
+        .from("habits")
+        .update({
+          position: index,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", habit.id)
+    )
+  );
+
+  const failed = results.find((result) => result.error);
+  if (failed?.error) {
+    throw failed.error;
   }
 }
 
@@ -126,5 +165,6 @@ export default {
   createHabit,
   updateHabit,
   deleteHabit,
-  deleteHabits
+  deleteHabits,
+  reorderHabits
 };
