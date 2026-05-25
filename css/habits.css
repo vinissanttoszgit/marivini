@@ -64,9 +64,10 @@
 }
 
 .habit-card {
+  position: relative;
   padding: 14px 16px;
+  padding-top: 24px;
   display: grid;
-  gap: 10px;
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
@@ -89,6 +90,19 @@
   grid-template-columns: auto 1fr auto;
   gap: 12px;
   align-items: start;
+}
+
+.habit-card__floating-badges {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
 }
 
 .habit-card__check {
@@ -138,36 +152,16 @@
   color: var(--color-text);
 }
 
-.habit-card__footer {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--color-border) 85%, white);
-}
-
-.habit-card__footer-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
 .habit-card__chip {
   font-size: 0.77rem;
   font-weight: 700;
   line-height: 1.2;
-}
-
-.habit-card__chip {
   padding: 5px 9px;
   border-radius: 999px;
-  background: var(--color-surface-soft);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-muted);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .habit-card__status {
