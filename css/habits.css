@@ -60,13 +60,12 @@
 
 .habit-list {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .habit-card {
   position: relative;
-  padding: 14px 16px;
-  padding-top: 24px;
+  padding: 22px 16px;
   display: grid;
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
@@ -89,7 +88,7 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 12px;
-  align-items: start;
+  align-items: center;
 }
 
 .habit-card__floating-badges {
@@ -108,7 +107,6 @@
 .habit-card__check {
   width: 28px;
   height: 28px;
-  margin-top: 5px;
   border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--color-primary) 32%, white);
   display: grid;
@@ -187,7 +185,7 @@
 
 .habit-card__actions {
   display: grid;
-  align-self: start;
+  align-self: center;
 }
 
 .habit-card__menu {
