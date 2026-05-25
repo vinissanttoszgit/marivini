@@ -150,10 +150,7 @@ export function createHabitsPage(context) {
               </section>`
             : ""
         }
-        <div class="section-row">
-          <h2 class="section-title">Seus hábitos</h2>
-          ${button("Adicionar hábito", "secondary", 'id="open-habit-modal" class="section-action"')}
-        </div>
+        ${button("Adicionar hábito", "secondary", 'id="open-habit-modal" class="section-action section-action--full"')}
         ${
           visibleHabits.length
             ? `<section class="habit-list">${visibleHabits

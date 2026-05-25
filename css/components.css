@@ -24,6 +24,10 @@
   flex-shrink: 0;
 }
 
+.section-action--full {
+  width: 100%;
+}
+
 .btn:active {
   transform: translateY(1px);
 }
