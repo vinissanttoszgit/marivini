@@ -30,11 +30,20 @@
   text-transform: uppercase;
 }
 
+.eyebrow[hidden],
+.page-subtitle[hidden] {
+  display: none;
+}
+
 .page-title {
   margin-top: var(--space-2);
   font-size: 2.05rem;
   font-weight: 800;
   letter-spacing: -0.04em;
+}
+
+.page-title--flush {
+  margin-top: 0;
 }
 
 .page-subtitle {

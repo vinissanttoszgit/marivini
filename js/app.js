@@ -11,6 +11,9 @@ import { qs, setText } from "./utils/dom.js";
 
 const pageRoot = qs("#page-root");
 const navRoot = qs("#bottom-nav");
+const pageEyebrow = qs("#page-eyebrow");
+const pageTitle = qs("#page-title");
+const pageSubtitle = qs("#page-subtitle");
 const modal = new Modal();
 const toast = new Toast();
 
@@ -22,6 +25,9 @@ const context = {
     setText("#page-eyebrow", eyebrow);
     setText("#page-title", title);
     setText("#page-subtitle", subtitle);
+    pageEyebrow.hidden = !eyebrow;
+    pageTitle.classList.toggle("page-title--flush", !eyebrow);
+    pageSubtitle.hidden = !subtitle;
   }
 };
 

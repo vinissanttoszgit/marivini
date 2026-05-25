@@ -17,6 +17,13 @@
   transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.2s ease;
 }
 
+.section-action {
+  min-height: 40px;
+  padding: 0 14px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .btn:active {
   transform: translateY(1px);
 }
@@ -80,9 +87,10 @@
   min-height: 52px;
   border-radius: 14px;
   color: var(--color-muted);
-  display: grid;
+  display: flex;
   place-items: center;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
   font-size: 0.82rem;
   font-weight: 600;
 }
@@ -91,10 +99,6 @@
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
-}
-
-.bottom-nav__icon {
-  font-size: 1.25rem;
 }
 
 .toast-stack {

@@ -29,9 +29,9 @@ export function createHabitsPage(context) {
 
   async function render(root) {
     context.setHeader({
-      eyebrow: "Marivini",
+      eyebrow: "",
       title: "Hábitos",
-      subtitle: "Rotina diária"
+      subtitle: ""
     });
 
     root.innerHTML = loadingState("Montando sua rotina...");
@@ -59,11 +59,8 @@ export function createHabitsPage(context) {
       <div class="page-stack">
         ${progressCard({ completed, total })}
         <div class="section-row">
-          <div>
-            <h2 class="section-title">Seus hábitos</h2>
-            <p>Uma lista simples para manter sua consistência.</p>
-          </div>
-          ${button("Adicionar hábito", "secondary", 'id="open-habit-modal"')}
+          <h2 class="section-title">Seus hábitos</h2>
+          ${button("Adicionar hábito", "secondary", 'id="open-habit-modal" class="section-action"')}
         </div>
         ${
           state.habits.length

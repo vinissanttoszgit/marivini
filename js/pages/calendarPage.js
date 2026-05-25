@@ -35,7 +35,7 @@ export function createCalendarPage(context) {
 
   async function render(root) {
     context.setHeader({
-      eyebrow: "Marivini",
+      eyebrow: "",
       title: "Calendário",
       subtitle: "Eventos e lembretes"
     });
