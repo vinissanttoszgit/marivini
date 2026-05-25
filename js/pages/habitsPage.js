@@ -112,22 +112,6 @@ export function createHabitsPage(context) {
     return formatHabitDateLabel(state.selectedDate);
   }
 
-  function getDaysSummary(activeDays) {
-    const normalized = normalizeActiveDays(activeDays);
-    if (normalized.length === 7) {
-      return "";
-    }
-
-    const hasWeekdaysOnly = [1, 2, 3, 4, 5].every((day) => normalized.includes(day)) && normalized.length === 5;
-    if (hasWeekdaysOnly) {
-      return "SEG a SEX";
-    }
-
-    return WEEKDAY_OPTIONS.filter((option) => normalized.includes(option.value))
-      .map((option) => option.label)
-      .join(", ");
-  }
-
   function getMarkup() {
     const visibleHabits = getVisibleHabits();
     const completedIds = getCompletedIds();
@@ -162,7 +146,6 @@ export function createHabitsPage(context) {
                       state.recentLogs.filter((log) => log.habit_id === habit.id),
                       state.selectedDate
                     ),
-                    activeDaysLabel: getDaysSummary(habit.active_days),
                     isSelectionMode: state.selectionMode,
                     isSelected: selectionSet.has(habit.id)
                   })

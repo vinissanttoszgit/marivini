@@ -142,22 +142,21 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   padding-top: 10px;
   border-top: 1px solid color-mix(in srgb, var(--color-border) 85%, white);
 }
 
-.habit-card__footer-left {
-  min-width: 0;
+.habit-card__footer-right {
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-content: flex-end;
   flex-wrap: wrap;
 }
 
-.habit-card__chip,
-.habit-card__days {
+.habit-card__chip {
   font-size: 0.77rem;
   font-weight: 700;
   line-height: 1.2;
@@ -169,11 +168,6 @@
   background: var(--color-surface-soft);
   border: 1px solid var(--color-border);
   color: var(--color-muted);
-}
-
-.habit-card__days {
-  color: var(--color-muted);
-  letter-spacing: 0.02em;
 }
 
 .habit-card__status {
