@@ -147,7 +147,7 @@
 
 .bottom-nav__list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
 }
 
@@ -167,6 +167,10 @@
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
+}
+
+.bottom-nav__item--icon {
+  font-size: 1.1rem;
 }
 
 .icon-button:active,

@@ -134,7 +134,6 @@ export function createHabitsPage(context) {
               </section>`
             : ""
         }
-        ${button("Adicionar hábito", "secondary", 'id="open-habit-modal" class="section-action section-action--full"')}
         ${
           visibleHabits.length
             ? `<section class="habit-list">${visibleHabits
@@ -440,7 +439,6 @@ export function createHabitsPage(context) {
   }
 
   function bind(root) {
-    root.querySelector("#open-habit-modal")?.addEventListener("click", () => openHabitModal());
     root.querySelector("#empty-create-habit")?.addEventListener("click", () => openHabitModal());
     root.querySelector("#prev-habit-date")?.addEventListener("click", async () => changeSelectedDate(-1));
     root.querySelector("#next-habit-date")?.addEventListener("click", async () => changeSelectedDate(1));
@@ -467,5 +465,10 @@ export function createHabitsPage(context) {
     root.querySelectorAll("[data-habit-id]").forEach((element) => bindHabitCard(root, element));
   }
 
-  return { render };
+  return {
+    render,
+    openCreateHabitModal() {
+      openHabitModal();
+    }
+  };
 }

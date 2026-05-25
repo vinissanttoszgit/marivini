@@ -68,7 +68,16 @@ async function init() {
 }
 
 function bindGlobalActions() {
-  qs("#settings-trigger").addEventListener("click", () => openSettingsModal(context));
+  qs("#header-add-habit-trigger").addEventListener("click", async () => {
+    if (activeTab !== "habits") {
+      activeTab = "habits";
+      storeTab(activeTab);
+      renderNav();
+      await renderCurrentTab();
+    }
+
+    pages.habits.openCreateHabitModal();
+  });
 }
 
 function renderNav() {
@@ -76,6 +85,7 @@ function renderNav() {
   navRoot.appendChild(
     createNavbar({
       activeTab,
+      onOpenSettings: () => openSettingsModal(context),
       onNavigate: async (tab) => {
         activeTab = tab;
         storeTab(tab);
