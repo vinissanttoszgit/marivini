@@ -769,7 +769,6 @@ export function createHabitsPage(context) {
   function bindHabitCard(root, element) {
     const habitId = String(element.dataset.habitId);
     let pressTimer = null;
-    let movedBeforeLongPress = false;
     let longPressTriggered = false;
     let pointerSession = null;
 
@@ -783,7 +782,6 @@ export function createHabitsPage(context) {
     const cleanupSession = () => {
       clearPressTimer();
       pointerSession = null;
-      movedBeforeLongPress = false;
       longPressTriggered = false;
     };
 
@@ -798,17 +796,24 @@ export function createHabitsPage(context) {
         startY: event.clientY,
         lastX: event.clientX,
         lastY: event.clientY,
-        dragged: false
+        longPressFired: false,
+        dragging: false,
+        shouldSuppressClick: false
       };
 
-      movedBeforeLongPress = false;
       longPressTriggered = false;
+      element.setPointerCapture?.(event.pointerId);
 
       clearPressTimer();
       pressTimer = setTimeout(() => {
-        if (!pointerSession || (!state.selectionMode && movedBeforeLongPress)) {
+        if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
           return;
         }
+
+        pointerSession.longPressFired = true;
+        pointerSession.dragging = true;
+        pointerSession.shouldSuppressClick = true;
+        suppressClickUntil = Date.now() + 500;
 
         if (!state.selectionMode) {
           enterSelectionMode(habitId);
@@ -816,7 +821,6 @@ export function createHabitsPage(context) {
         }
 
         longPressTriggered = true;
-        pointerSession.dragged = true;
         startDrag(root, element, event.pointerId, pointerSession.lastX, pointerSession.lastY);
       }, LONG_PRESS_MS);
     });
@@ -831,15 +835,22 @@ export function createHabitsPage(context) {
 
       const deltaX = event.clientX - pointerSession.startX;
       const deltaY = event.clientY - pointerSession.startY;
-      const movedEnough = Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX;
-
-      if (!activeDrag && movedEnough && !state.selectionMode) {
-        movedBeforeLongPress = true;
-      }
 
       if (activeDrag && activeDrag.pointerId === event.pointerId) {
         event.preventDefault();
         updateDraggedPosition(event.clientX, event.clientY);
+        return;
+      }
+
+      if (!pointerSession.longPressFired) {
+        return;
+      }
+
+      if (Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX && !activeDrag) {
+        event.preventDefault();
+        pointerSession.dragging = true;
+        pointerSession.shouldSuppressClick = true;
+        startDrag(root, element, event.pointerId, event.clientX, event.clientY);
       }
     });
 
@@ -857,16 +868,24 @@ export function createHabitsPage(context) {
         return;
       }
 
+      if (pointerSession.longPressFired) {
+        suppressClickUntil = Date.now() + 500;
+        if (element.hasPointerCapture?.(event.pointerId)) {
+          element.releasePointerCapture(event.pointerId);
+        }
+        cleanupSession();
+        return;
+      }
+
+      if (element.hasPointerCapture?.(event.pointerId)) {
+        element.releasePointerCapture(event.pointerId);
+      }
+
       cleanupSession();
     };
 
     element.addEventListener("pointerup", handlePointerEnd);
     element.addEventListener("pointercancel", handlePointerEnd);
-    element.addEventListener("pointerleave", () => {
-      if (!activeDrag) {
-        clearPressTimer();
-      }
-    });
 
     element.addEventListener("click", async (event) => {
       if (event.target.closest("[data-action='edit']")) {
@@ -875,10 +894,13 @@ export function createHabitsPage(context) {
 
       if (Date.now() < suppressClickUntil) {
         event.preventDefault();
+        event.stopPropagation();
         return;
       }
 
-      if (longPressTriggered) {
+      if (longPressTriggered || pointerSession?.shouldSuppressClick) {
+        event.preventDefault();
+        event.stopPropagation();
         return;
       }
 
