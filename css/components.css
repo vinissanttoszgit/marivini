@@ -5,6 +5,57 @@
   box-shadow: var(--shadow-card);
 }
 
+.btn,
+.icon-button,
+.bottom-nav__item,
+.floating-action,
+.weekday-chip,
+.theme-swatch,
+.subtle-link,
+.habit-card {
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:focus,
+.icon-button:focus,
+.bottom-nav__item:focus,
+.floating-action:focus,
+.weekday-chip:focus,
+.theme-swatch:focus,
+.subtle-link:focus,
+.habit-card:focus {
+  outline: none;
+}
+
+.btn:focus-visible,
+.icon-button:focus-visible,
+.bottom-nav__item:focus-visible,
+.floating-action:focus-visible,
+.weekday-chip:focus-visible,
+.theme-swatch:focus-visible,
+.subtle-link:focus-visible,
+.habit-card:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, white);
+}
+
+.btn:active,
+.icon-button:active,
+.bottom-nav__item:active,
+.floating-action:active,
+.weekday-chip:active,
+.theme-swatch:active,
+.subtle-link:active,
+.habit-card:active {
+  transform: scale(0.98);
+}
+
 .btn {
   min-height: 46px;
   border-radius: var(--radius-sm);
@@ -14,7 +65,13 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .section-action {
@@ -29,7 +86,7 @@
 }
 
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.985);
 }
 
 .btn-primary {
@@ -103,6 +160,17 @@
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
+}
+
+.icon-button:active,
+.bottom-nav__item:active,
+.weekday-chip:active,
+.theme-swatch:active {
+  background: color-mix(in srgb, var(--color-primary) 10%, white);
+}
+
+.subtle-link:active {
+  opacity: 0.7;
 }
 
 .toast-stack {

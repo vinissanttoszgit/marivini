@@ -74,8 +74,7 @@
 }
 
 .habit-card:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-text) 50%, white);
-  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--color-primary) 32%, white);
 }
 
 .habit-card.is-complete {
