@@ -8,19 +8,15 @@
 .progress-card__top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
 }
 
 .progress-card__value {
-  font-size: 2.2rem;
+  font-size: 1.8rem;
   font-weight: 800;
   color: var(--color-text);
   letter-spacing: -0.05em;
-}
-
-.progress-card__meta {
-  font-size: 0.92rem;
 }
 
 .progress-bar {
@@ -34,7 +30,7 @@
 .progress-bar__fill {
   height: 100%;
   border-radius: inherit;
-  background: var(--color-text);
+  background: var(--color-primary);
 }
 
 .habit-date-nav,

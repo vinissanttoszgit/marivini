@@ -10,7 +10,6 @@ export function progressCard({ completed, total, label = "" }) {
         </div>
         <div class="pill">${completed}/${total} concluídos</div>
       </div>
-      <p class="progress-card__meta">Mantenha o ritmo e feche o dia com sua rotina em dia.</p>
       <div class="progress-bar">
         <div class="progress-bar__fill" style="width: ${percentage}%"></div>
       </div>
