@@ -21,6 +21,8 @@ const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "�
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const LONG_PRESS_MS = 500;
 const CLICK_GUARD_MS = 900;
+const AUTO_SCROLL_EDGE_PX = 90;
+const AUTO_SCROLL_MAX_SPEED = 14;
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "SEG" },
   { value: 2, label: "TER" },
@@ -509,48 +511,16 @@ export function createHabitsPage(context) {
     });
   }
 
-  function captureCardRects(list) {
-    return new Map(
-      [...list.querySelectorAll("[data-habit-id]")].map((element) => [
-        element.dataset.habitId,
-        element.getBoundingClientRect()
-      ])
-    );
-  }
+  function getAdjacentHabitSibling(startElement, direction, draggedElement) {
+    let sibling =
+      direction === "previous" ? startElement.previousElementSibling : startElement.nextElementSibling;
 
-  function animateCardPositions(list, previousRects, skipId = null) {
-    list.querySelectorAll("[data-habit-id]").forEach((element) => {
-      const habitId = element.dataset.habitId;
-      if (habitId === skipId) {
-        return;
-      }
+    while (sibling && sibling === draggedElement) {
+      sibling =
+        direction === "previous" ? sibling.previousElementSibling : sibling.nextElementSibling;
+    }
 
-      const previousRect = previousRects.get(habitId);
-      if (!previousRect) {
-        return;
-      }
-
-      const nextRect = element.getBoundingClientRect();
-      const deltaY = previousRect.top - nextRect.top;
-
-      if (!deltaY) {
-        return;
-      }
-
-      element.style.transition = "none";
-      element.style.transform = `translateY(${deltaY}px)`;
-
-      requestAnimationFrame(() => {
-        element.style.transition = "transform 180ms ease";
-        element.style.transform = "";
-
-        window.setTimeout(() => {
-          if (!element.classList.contains("is-dragging")) {
-            element.style.transition = "";
-          }
-        }, 200);
-      });
-    });
+    return sibling;
   }
 
   function lockDragScroll() {
@@ -621,36 +591,31 @@ export function createHabitsPage(context) {
     });
   }
 
-  function getPlaceholderAnchor(list, draggedElement, draggedCenterY) {
-    const siblings = [...list.querySelectorAll("[data-habit-id]")].filter((element) => element !== draggedElement);
-
-    for (const sibling of siblings) {
-      const rect = sibling.getBoundingClientRect();
-      if (draggedCenterY < rect.top + rect.height / 2) {
-        return sibling;
-      }
-    }
-
-    return null;
-  }
-
   function movePlaceholder(list, placeholder, draggedElement, draggedCenterY) {
-    const anchor = getPlaceholderAnchor(list, draggedElement, draggedCenterY);
-    const target = anchor ?? null;
+    let previousSibling = getAdjacentHabitSibling(placeholder, "previous", draggedElement);
 
-    if (target === placeholder.nextElementSibling || (!target && list.lastElementChild === placeholder)) {
-      return;
+    while (previousSibling) {
+      const rect = previousSibling.getBoundingClientRect();
+      if (draggedCenterY >= rect.top + rect.height / 2) {
+        break;
+      }
+
+      list.insertBefore(placeholder, previousSibling);
+      previousSibling = getAdjacentHabitSibling(placeholder, "previous", draggedElement);
     }
 
-    const previousRects = captureCardRects(list);
+    let nextSibling = getAdjacentHabitSibling(placeholder, "next", draggedElement);
 
-    if (target) {
-      list.insertBefore(placeholder, target);
-    } else {
-      list.appendChild(placeholder);
+    while (nextSibling) {
+      const rect = nextSibling.getBoundingClientRect();
+      if (draggedCenterY <= rect.top + rect.height / 2) {
+        break;
+      }
+
+      const nextAnchor = getAdjacentHabitSibling(nextSibling, "next", draggedElement);
+      list.insertBefore(placeholder, nextAnchor);
+      nextSibling = getAdjacentHabitSibling(placeholder, "next", draggedElement);
     }
-
-    animateCardPositions(list, previousRects, activeDrag?.habitId ?? null);
   }
 
   function startDrag(root, element, pointerId, clientX, clientY) {
@@ -689,12 +654,19 @@ export function createHabitsPage(context) {
       list,
       originalNextSibling,
       offsetX: clientX - rect.left,
-      offsetY: clientY - rect.top
+      offsetY: clientY - rect.top,
+      initialLeft: rect.left,
+      initialTop: rect.top,
+      lastClientX: clientX,
+      lastClientY: clientY,
+      dragFrameId: null,
+      autoScrollFrameId: null
     };
 
     suppressUpcomingHabitClick();
     element.setPointerCapture?.(pointerId);
-    updateDraggedPosition(clientX, clientY);
+    scheduleDragFrame();
+    startAutoScrollLoop();
   }
 
   function updateDraggedPosition(clientX, clientY) {
@@ -702,13 +674,82 @@ export function createHabitsPage(context) {
       return;
     }
 
-    const { element, offsetY, offsetX, list, placeholder } = activeDrag;
+    const { element, offsetY, offsetX, list, placeholder, initialLeft, initialTop } = activeDrag;
     const top = clientY - offsetY;
     const left = clientX - offsetX;
     const centerY = top + element.offsetHeight / 2;
 
-    element.style.transform = `translate3d(${left - parseFloat(element.style.left)}px, ${top - parseFloat(element.style.top)}px, 0)`;
+    element.style.transform = `translate3d(${left - initialLeft}px, ${top - initialTop}px, 0)`;
     movePlaceholder(list, placeholder, element, centerY);
+  }
+
+  function flushDragFrame() {
+    if (!activeDrag) {
+      return;
+    }
+
+    activeDrag.dragFrameId = null;
+    updateDraggedPosition(activeDrag.lastClientX, activeDrag.lastClientY);
+  }
+
+  function scheduleDragFrame() {
+    if (!activeDrag || activeDrag.dragFrameId !== null) {
+      return;
+    }
+
+    activeDrag.dragFrameId = requestAnimationFrame(() => {
+      flushDragFrame();
+    });
+  }
+
+  function getAutoScrollSpeed(clientY) {
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+
+    if (clientY < AUTO_SCROLL_EDGE_PX) {
+      const intensity = (AUTO_SCROLL_EDGE_PX - clientY) / AUTO_SCROLL_EDGE_PX;
+      return -Math.max(1, Math.round(AUTO_SCROLL_MAX_SPEED * intensity));
+    }
+
+    if (clientY > viewportHeight - AUTO_SCROLL_EDGE_PX) {
+      const intensity = (clientY - (viewportHeight - AUTO_SCROLL_EDGE_PX)) / AUTO_SCROLL_EDGE_PX;
+      return Math.max(1, Math.round(AUTO_SCROLL_MAX_SPEED * intensity));
+    }
+
+    return 0;
+  }
+
+  function runAutoScrollFrame() {
+    if (!activeDrag) {
+      return;
+    }
+
+    const speed = getAutoScrollSpeed(activeDrag.lastClientY);
+
+    if (speed) {
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - viewportHeight);
+      const nextScrollY = Math.min(maxScrollY, Math.max(0, window.scrollY + speed));
+      const delta = nextScrollY - window.scrollY;
+
+      if (delta) {
+        window.scrollBy(0, delta);
+        updateDraggedPosition(activeDrag.lastClientX, activeDrag.lastClientY);
+      }
+    }
+
+    activeDrag.autoScrollFrameId = requestAnimationFrame(() => {
+      runAutoScrollFrame();
+    });
+  }
+
+  function startAutoScrollLoop() {
+    if (!activeDrag || activeDrag.autoScrollFrameId !== null) {
+      return;
+    }
+
+    activeDrag.autoScrollFrameId = requestAnimationFrame(() => {
+      runAutoScrollFrame();
+    });
   }
 
   function applyVisibleOrder(orderedVisibleIds) {
@@ -758,7 +799,15 @@ export function createHabitsPage(context) {
       return;
     }
 
-    const { element, placeholder, list, pointerId } = dragState;
+    const { element, placeholder, list, pointerId, dragFrameId, autoScrollFrameId } = dragState;
+
+    if (dragFrameId !== null) {
+      cancelAnimationFrame(dragFrameId);
+    }
+
+    if (autoScrollFrameId !== null) {
+      cancelAnimationFrame(autoScrollFrameId);
+    }
 
     if (element.hasPointerCapture?.(pointerId)) {
       element.releasePointerCapture(pointerId);
@@ -877,7 +926,9 @@ export function createHabitsPage(context) {
 
       if (activeDrag && activeDrag.pointerId === event.pointerId) {
         event.preventDefault();
-        updateDraggedPosition(event.clientX, event.clientY);
+        activeDrag.lastClientX = event.clientX;
+        activeDrag.lastClientY = event.clientY;
+        scheduleDragFrame();
         return;
       }
     });
