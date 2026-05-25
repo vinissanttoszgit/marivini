@@ -21,6 +21,7 @@ const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "�
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const LONG_PRESS_MS = 500;
 const DRAG_THRESHOLD_PX = 8;
+const CLICK_GUARD_MS = 180;
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "SEG" },
   { value: 2, label: "TER" },
@@ -41,6 +42,9 @@ export function createHabitsPage(context) {
     selectionMode: false,
     reorderSyncPending: false
   };
+
+  let activeDrag = null;
+  let suppressClickUntil = 0;
 
   function normalizeActiveDays(activeDays) {
     if (!Array.isArray(activeDays) || !activeDays.length) {
@@ -534,17 +538,159 @@ export function createHabitsPage(context) {
     });
   }
 
-  function getDropAnchor(list, draggedElement, clientY) {
+  function lockDragScroll() {
+    document.body.classList.add("is-habit-dragging");
+  }
+
+  function unlockDragScroll() {
+    document.body.classList.remove("is-habit-dragging");
+  }
+
+  function syncSelectionUi(root) {
+    const pageStack = root.querySelector(".page-stack");
+    const list = root.querySelector(".habit-list");
+    const selectionSet = getSelectionSet();
+
+    pageStack?.classList.toggle("page-stack--selection-mode", state.selectionMode);
+    list?.classList.toggle("is-reorder-enabled", state.selectionMode);
+
+    root.querySelectorAll("[data-habit-id]").forEach((cardElement) => {
+      const isSelected = selectionSet.has(String(cardElement.dataset.habitId));
+      const checkElement = cardElement.querySelector(".habit-card__check");
+      const titleElement = cardElement.querySelector(".habit-card__title");
+      const title = titleElement?.textContent?.trim() || "";
+
+      cardElement.classList.toggle("is-selection-mode", state.selectionMode);
+      cardElement.classList.toggle("is-selected", isSelected);
+      cardElement.setAttribute("aria-pressed", String(state.selectionMode ? isSelected : cardElement.classList.contains("is-complete")));
+      cardElement.setAttribute(
+        "aria-label",
+        state.selectionMode ? `Selecionar ${title}` : `Marcar hábito ${title}`
+      );
+
+      if (checkElement) {
+        checkElement.textContent = state.selectionMode
+          ? isSelected
+            ? "✓"
+            : ""
+          : cardElement.classList.contains("is-complete")
+            ? "✓"
+            : "";
+      }
+    });
+
+    const existingBar = root.querySelector(".habit-selection-floating-bar");
+    if (state.selectionMode) {
+      if (existingBar) {
+        existingBar.outerHTML = getSelectionBarMarkup();
+      } else {
+        root.insertAdjacentHTML("beforeend", getSelectionBarMarkup());
+      }
+
+      bindSelectionBar(root);
+    } else {
+      existingBar?.remove();
+    }
+  }
+
+  function bindSelectionBar(root) {
+    root.querySelector("#cancel-habit-selection")?.addEventListener("click", () => {
+      clearSelection();
+      refreshContent(root);
+    });
+
+    root.querySelector("#delete-selected-habits")?.addEventListener("click", () => {
+      if (state.selectedHabitIds.length) {
+        openDeleteHabitsModal(state.selectedHabitIds);
+      }
+    });
+  }
+
+  function getPlaceholderAnchor(list, draggedElement, draggedCenterY) {
     const siblings = [...list.querySelectorAll("[data-habit-id]")].filter((element) => element !== draggedElement);
 
     for (const sibling of siblings) {
       const rect = sibling.getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) {
+      if (draggedCenterY < rect.top + rect.height / 2) {
         return sibling;
       }
     }
 
     return null;
+  }
+
+  function movePlaceholder(list, placeholder, draggedElement, draggedCenterY) {
+    const anchor = getPlaceholderAnchor(list, draggedElement, draggedCenterY);
+    const target = anchor ?? null;
+
+    if (target === placeholder.nextElementSibling || (!target && list.lastElementChild === placeholder)) {
+      return;
+    }
+
+    const previousRects = captureCardRects(list);
+
+    if (target) {
+      list.insertBefore(placeholder, target);
+    } else {
+      list.appendChild(placeholder);
+    }
+
+    animateCardPositions(list, previousRects, activeDrag?.habitId ?? null);
+  }
+
+  function startDrag(root, element, pointerId, clientX, clientY) {
+    if (activeDrag) {
+      return;
+    }
+
+    const list = root.querySelector(".habit-list");
+    if (!list) {
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const placeholder = document.createElement("div");
+    placeholder.className = "habit-drag-placeholder";
+    placeholder.style.height = `${rect.height}px`;
+    placeholder.style.width = `${rect.width}px`;
+
+    list.insertBefore(placeholder, element.nextSibling);
+
+    element.classList.add("is-dragging");
+    list.classList.add("is-reordering");
+    lockDragScroll();
+
+    element.style.width = `${rect.width}px`;
+    element.style.height = `${rect.height}px`;
+    element.style.left = `${rect.left}px`;
+    element.style.top = `${rect.top}px`;
+
+    activeDrag = {
+      habitId: String(element.dataset.habitId),
+      pointerId,
+      element,
+      placeholder,
+      list,
+      offsetX: clientX - rect.left,
+      offsetY: clientY - rect.top
+    };
+
+    element.setPointerCapture?.(pointerId);
+    updateDraggedPosition(clientX, clientY);
+  }
+
+  function updateDraggedPosition(clientX, clientY) {
+    if (!activeDrag) {
+      return;
+    }
+
+    const { element, offsetY, offsetX, list, placeholder } = activeDrag;
+    const top = clientY - offsetY;
+    const left = clientX - offsetX;
+    const centerY = top + element.offsetHeight / 2;
+
+    element.style.transform = `translate3d(${left - parseFloat(element.style.left)}px, ${top - parseFloat(element.style.top)}px, 0)`;
+    movePlaceholder(list, placeholder, element, centerY);
   }
 
   function applyVisibleOrder(orderedVisibleIds) {
@@ -565,7 +711,7 @@ export function createHabitsPage(context) {
       }));
   }
 
-  async function persistVisibleOrderFromDom(root, list, draggedElement) {
+  async function persistVisibleOrder(root, list) {
     if (state.reorderSyncPending) {
       return;
     }
@@ -584,22 +730,48 @@ export function createHabitsPage(context) {
       state.habits = previousHabits;
       refreshContent(root);
       context.toast.error(error.message || "Não foi possível salvar a nova ordem.");
-      return;
     } finally {
       state.reorderSyncPending = false;
     }
+  }
 
-    draggedElement.dataset.justDragged = "true";
-    window.setTimeout(() => {
-      delete draggedElement.dataset.justDragged;
-    }, 120);
+  async function finishDrag(root) {
+    if (!activeDrag) {
+      return;
+    }
+
+    const { element, placeholder, list, pointerId } = activeDrag;
+    activeDrag = null;
+
+    suppressClickUntil = Date.now() + CLICK_GUARD_MS;
+
+    if (element.hasPointerCapture?.(pointerId)) {
+      element.releasePointerCapture(pointerId);
+    }
+
+    list.insertBefore(element, placeholder);
+    placeholder.remove();
+
+    element.classList.remove("is-dragging");
+    list.classList.remove("is-reordering");
+
+    element.style.width = "";
+    element.style.height = "";
+    element.style.left = "";
+    element.style.top = "";
+    element.style.transform = "";
+
+    unlockDragScroll();
+
+    await persistVisibleOrder(root, list);
   }
 
   function bindHabitCard(root, element) {
     const habitId = String(element.dataset.habitId);
     let pressTimer = null;
+    let movedBeforeLongPress = false;
     let longPressTriggered = false;
-    let dragSession = null;
+    let pointerSession = null;
 
     const clearPressTimer = () => {
       if (pressTimer) {
@@ -608,124 +780,90 @@ export function createHabitsPage(context) {
       }
     };
 
-    const endDragSession = async (event) => {
-      if (!dragSession) {
-        return;
-      }
-
+    const cleanupSession = () => {
       clearPressTimer();
-
-      const session = dragSession;
-      dragSession = null;
-
-      if (session.pointerId !== null && element.hasPointerCapture?.(session.pointerId)) {
-        element.releasePointerCapture(session.pointerId);
-      }
-
-      if (!session.dragging) {
-        return;
-      }
-
-      const list = root.querySelector(".habit-list");
-      if (!list) {
-        return;
-      }
-
-      element.classList.remove("is-dragging");
-      element.style.transition = "transform 180ms ease";
-      element.style.transform = "";
-      list.classList.remove("is-reordering");
-
-      window.setTimeout(() => {
-        element.style.transition = "";
-      }, 200);
-
-      if (event) {
-        event.preventDefault();
-      }
-
-      await persistVisibleOrderFromDom(root, list, element);
+      pointerSession = null;
+      movedBeforeLongPress = false;
+      longPressTriggered = false;
     };
 
     element.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || event.target.closest("[data-action='edit']")) {
+      if (event.button !== 0 || event.target.closest("[data-action='edit']") || activeDrag) {
         return;
       }
 
+      pointerSession = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        dragged: false
+      };
+
+      movedBeforeLongPress = false;
       longPressTriggered = false;
+
       clearPressTimer();
-
-      if (state.selectionMode) {
-        dragSession = {
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
-          dragging: false
-        };
-
-        element.setPointerCapture?.(event.pointerId);
-        return;
-      }
-
       pressTimer = setTimeout(() => {
+        if (!pointerSession || (!state.selectionMode && movedBeforeLongPress)) {
+          return;
+        }
+
+        if (!state.selectionMode) {
+          enterSelectionMode(habitId);
+          syncSelectionUi(root);
+        }
+
         longPressTriggered = true;
-        enterSelectionMode(habitId);
-        refreshContent(root);
+        pointerSession.dragged = true;
+        startDrag(root, element, event.pointerId, pointerSession.lastX, pointerSession.lastY);
       }, LONG_PRESS_MS);
     });
 
     element.addEventListener("pointermove", (event) => {
-      if (!dragSession || dragSession.pointerId !== event.pointerId || event.target.closest("[data-action='edit']")) {
+      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
         return;
       }
 
-      const deltaX = event.clientX - dragSession.startX;
-      const deltaY = event.clientY - dragSession.startY;
+      pointerSession.lastX = event.clientX;
+      pointerSession.lastY = event.clientY;
 
-      if (!dragSession.dragging && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX) {
-        return;
+      const deltaX = event.clientX - pointerSession.startX;
+      const deltaY = event.clientY - pointerSession.startY;
+      const movedEnough = Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX;
+
+      if (!activeDrag && movedEnough && !state.selectionMode) {
+        movedBeforeLongPress = true;
       }
 
-      const list = root.querySelector(".habit-list");
-      if (!list) {
-        return;
+      if (activeDrag && activeDrag.pointerId === event.pointerId) {
+        event.preventDefault();
+        updateDraggedPosition(event.clientX, event.clientY);
       }
-
-      if (!dragSession.dragging) {
-        dragSession.dragging = true;
-        element.classList.add("is-dragging");
-        list.classList.add("is-reordering");
-      }
-
-      event.preventDefault();
-      element.style.transform = `translateY(${deltaY}px)`;
-
-      const anchor = getDropAnchor(list, element, event.clientY);
-      const currentNext = element.nextElementSibling;
-      const shouldMove =
-        (anchor && anchor !== element && anchor !== currentNext) ||
-        (!anchor && list.lastElementChild !== element);
-
-      if (!shouldMove) {
-        return;
-      }
-
-      const previousRects = captureCardRects(list);
-
-      if (anchor) {
-        list.insertBefore(element, anchor);
-      } else {
-        list.appendChild(element);
-      }
-
-      animateCardPositions(list, previousRects, habitId);
-      element.style.transform = `translateY(${deltaY}px)`;
     });
 
-    element.addEventListener("pointerup", endDragSession);
-    element.addEventListener("pointercancel", endDragSession);
+    const handlePointerEnd = async (event) => {
+      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const wasDragging = activeDrag && activeDrag.pointerId === event.pointerId;
+
+      if (wasDragging) {
+        event.preventDefault();
+        await finishDrag(root);
+        cleanupSession();
+        return;
+      }
+
+      cleanupSession();
+    };
+
+    element.addEventListener("pointerup", handlePointerEnd);
+    element.addEventListener("pointercancel", handlePointerEnd);
     element.addEventListener("pointerleave", () => {
-      if (!state.selectionMode) {
+      if (!activeDrag) {
         clearPressTimer();
       }
     });
@@ -735,13 +873,12 @@ export function createHabitsPage(context) {
         return;
       }
 
-      if (element.dataset.justDragged === "true") {
-        delete element.dataset.justDragged;
+      if (Date.now() < suppressClickUntil) {
+        event.preventDefault();
         return;
       }
 
       if (longPressTriggered) {
-        longPressTriggered = false;
         return;
       }
 
@@ -775,15 +912,8 @@ export function createHabitsPage(context) {
     root.querySelector("#empty-create-habit")?.addEventListener("click", () => openHabitModal());
     root.querySelector("#prev-habit-date")?.addEventListener("click", async () => changeSelectedDate(-1));
     root.querySelector("#next-habit-date")?.addEventListener("click", async () => changeSelectedDate(1));
-    root.querySelector("#cancel-habit-selection")?.addEventListener("click", () => {
-      clearSelection();
-      refreshContent(root);
-    });
-    root.querySelector("#delete-selected-habits")?.addEventListener("click", () => {
-      if (state.selectedHabitIds.length) {
-        openDeleteHabitsModal(state.selectedHabitIds);
-      }
-    });
+
+    bindSelectionBar(root);
 
     root.querySelectorAll("[data-action='edit']").forEach((element) => {
       element.addEventListener("click", (event) => {
