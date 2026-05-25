@@ -1,3 +1,15 @@
+function getCompactStatus(streakData) {
+  if (streakData.missedTwoDaysRisk) {
+    return "Não falhar";
+  }
+
+  if (streakData.missedYesterday) {
+    return "Retomar";
+  }
+
+  return "Pendente";
+}
+
 export function habitCard({ habit, isCompleted, streakData, activeDaysLabel = "", isSelectionMode = false, isSelected = false }) {
   const statusClass = streakData.missedTwoDaysRisk
     ? "status-risk"
@@ -17,18 +29,17 @@ export function habitCard({ habit, isCompleted, streakData, activeDaysLabel = ""
       <div class="habit-card__check" aria-hidden="true">
         ${isSelectionMode ? (isSelected ? "✓" : "") : isCompleted ? "✓" : ""}
       </div>
-      <div class="habit-card__content">
-        <div class="habit-card__icon">${habit.icon || "✨"}</div>
-        <div class="habit-card__main">
+      <div class="habit-card__body">
+        <div class="habit-card__top">
+          <div class="habit-card__icon">${habit.icon || "✨"}</div>
           <h3 class="habit-card__title">${habit.title}</h3>
-          ${habit.description ? `<p class="habit-card__description">${habit.description}</p>` : ""}
-          <div class="habit-card__meta">
-            <div class="habit-card__badges">
-              <span class="pill">🔥 ${streakData.currentStreak} dias</span>
-              <span class="${statusClass}">${streakData.statusLabel}</span>
-            </div>
-            ${activeDaysLabel ? `<p class="habit-card__days">${activeDaysLabel}</p>` : ""}
+        </div>
+        <div class="habit-card__footer">
+          <div class="habit-card__footer-left">
+            <span class="habit-card__streak">🔥 ${streakData.currentStreak} dias</span>
+            ${activeDaysLabel ? `<span class="habit-card__days">${activeDaysLabel}</span>` : ""}
           </div>
+          <span class="habit-card__status ${statusClass}">${getCompactStatus(streakData)}</span>
         </div>
       </div>
       <div class="habit-card__actions">

@@ -10,9 +10,9 @@ import {
   endOfDayISO,
   formatHabitDateLabel,
   getWeekdayIndex,
+  parseISODate,
   startOfDayISO,
-  todayISO,
-  parseISODate
+  todayISO
 } from "../utils/dates.js";
 import { calculateHabitStatus } from "../utils/streak.js";
 import { validateRequired } from "../utils/validators.js";
@@ -304,42 +304,32 @@ export function createHabitsPage(context) {
   function openHabitModal(habit = null) {
     context.modal.open({
       title: habit ? "Editar hábito" : "Novo hábito",
-      description: "Escolha o hábito e em quais dias ele deve aparecer na sua rotina.",
+      description: "",
       content: `
         <form class="form-stack" id="habit-form">
+          <div class="weekday-field">
+            <span class="weekday-field__label">Frequência</span>
+            ${getModalWeekdayMarkup(habit?.active_days)}
+          </div>
           <label>
             Título
             <input name="title" maxlength="80" value="${habit?.title ?? ""}" placeholder="Ex.: Ler 20 minutos" required />
           </label>
-          <label>
-            Descrição
-            <textarea name="description" maxlength="180" placeholder="Opcional">${habit?.description ?? ""}</textarea>
-          </label>
-          <label>
-            Ícone
-            <select name="icon">
+          <div class="habit-icon-field">
+            <span class="habit-icon-field__label">Ícone</span>
+            <select class="habit-icon-field__select" name="icon" aria-label="Selecionar ícone do hábito">
               ${EMOJI_OPTIONS.map((emoji) => `<option value="${emoji}" ${habit?.icon === emoji ? "selected" : ""}>${emoji}</option>`).join("")}
             </select>
-          </label>
-          <div class="weekday-field">
-            <span class="weekday-field__label">Frequência</span>
-            ${getModalWeekdayMarkup(habit?.active_days)}
           </div>
         </form>
       `,
       footer: `
         ${button("Cancelar", "ghost", 'type="button" data-close-modal')}
-        ${habit ? button("Excluir", "danger", 'type="button" id="delete-habit-inline"') : ""}
         ${button(habit ? "Salvar alterações" : "Salvar hábito", "primary", 'type="submit" form="habit-form"')}
       `
     });
 
     bindWeekdayPicker();
-
-    document.querySelector("#delete-habit-inline")?.addEventListener("click", () => {
-      context.modal.close();
-      openDeleteHabitModal(habit);
-    });
 
     document.querySelector("#habit-form").addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -347,7 +337,7 @@ export function createHabitsPage(context) {
       const activeDays = readSelectedWeekdays();
       const payload = {
         title: String(formData.get("title")).trim(),
-        description: String(formData.get("description")).trim(),
+        description: null,
         icon: String(formData.get("icon")).trim(),
         active_days: activeDays
       };
@@ -399,10 +389,6 @@ export function createHabitsPage(context) {
         context.toast.error(error.message || "Não foi possível excluir os hábitos.");
       }
     });
-  }
-
-  function openDeleteHabitModal(habit) {
-    openDeleteHabitsModal([habit.id]);
   }
 
   function bindHabitCard(root, element) {

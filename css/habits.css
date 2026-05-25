@@ -68,7 +68,7 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 12px;
-  align-items: center;
+  align-items: start;
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
 }
@@ -82,13 +82,14 @@
 }
 
 .habit-card.is-selected {
-  border-color: var(--color-text);
-  box-shadow: inset 0 0 0 1px var(--color-text);
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 
 .habit-card__check {
   width: 28px;
   height: 28px;
+  margin-top: 5px;
   border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--color-primary) 32%, white);
   display: grid;
@@ -102,11 +103,17 @@
 
 .habit-card.is-complete .habit-card__check,
 .habit-card.is-selected .habit-card__check {
-  background: var(--color-text);
-  border-color: var(--color-text);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
-.habit-card__content {
+.habit-card__body {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.habit-card__top {
   min-width: 0;
   display: grid;
   grid-template-columns: auto 1fr;
@@ -115,77 +122,73 @@
 }
 
 .habit-card__icon {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
   display: grid;
   place-items: center;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   background: color-mix(in srgb, var(--color-primary) 8%, white);
   border: 1px solid color-mix(in srgb, var(--color-primary) 14%, white);
 }
 
-.habit-card__main {
-  min-width: 0;
-  display: grid;
-  gap: 5px;
-}
-
 .habit-card__title {
+  min-width: 0;
   font-size: 0.98rem;
   font-weight: 600;
   color: var(--color-text);
 }
 
-.habit-card__description {
-  font-size: 0.88rem;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.habit-card__meta {
-  display: grid;
-  gap: 6px;
-}
-
-.habit-card__badges {
+.habit-card__footer {
+  min-width: 0;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 85%, white);
+}
+
+.habit-card__footer-left {
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.habit-card__streak,
+.habit-card__days,
+.habit-card__status {
+  font-size: 0.77rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.habit-card__streak {
+  color: var(--color-text);
 }
 
 .habit-card__days {
-  font-size: 0.74rem;
-  font-weight: 700;
+  color: var(--color-muted);
   letter-spacing: 0.02em;
+}
+
+.habit-card__status {
+  flex-shrink: 0;
   color: var(--color-muted);
 }
 
-.status-risk,
-.status-warning,
-.status-safe {
-  font-size: 0.76rem;
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-weight: 700;
-}
-
 .status-risk {
-  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
 .status-warning {
-  background: var(--color-warning-soft);
   color: var(--color-warning);
 }
 
 .status-safe {
-  background: var(--color-success-soft);
-  color: var(--color-success);
+  color: var(--color-muted);
 }
 
 .habit-card__actions {
@@ -194,21 +197,23 @@
 }
 
 .habit-card__menu {
-  width: 40px;
-  height: 40px;
-  font-size: 1.4rem;
+  width: 38px;
+  height: 38px;
+  font-size: 1.35rem;
   line-height: 1;
 }
 
 .weekday-field {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
-.weekday-field__label {
-  font-size: 0.9rem;
+.weekday-field__label,
+.habit-icon-field__label {
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text);
+  letter-spacing: 0.01em;
 }
 
 .weekday-picker {
@@ -218,19 +223,41 @@
 }
 
 .weekday-chip {
-  min-width: 52px;
-  min-height: 38px;
-  padding: 0 12px;
+  min-width: 46px;
+  min-height: 34px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   background: var(--color-surface-soft);
   color: var(--color-muted);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
 .weekday-chip.is-selected {
-  background: var(--color-text);
-  border-color: var(--color-text);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
+}
+
+.habit-icon-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-soft);
+}
+
+.habit-icon-field__select {
+  width: auto;
+  min-width: 72px;
+  padding: 8px 30px 8px 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  border-color: color-mix(in srgb, var(--color-primary) 18%, white);
+  background: var(--color-surface);
 }
