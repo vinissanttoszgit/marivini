@@ -10,15 +10,15 @@
 }
 
 .calendar-header__label {
-  font-size: 1.05rem;
-  font-weight: 800;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--color-text);
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .calendar-grid__weekday,
@@ -29,18 +29,19 @@
 .calendar-grid__weekday {
   color: var(--color-muted);
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
   padding-bottom: 6px;
 }
 
 .calendar-grid__day {
-  min-height: 52px;
-  border-radius: 16px;
+  min-height: 48px;
+  border-radius: 12px;
   padding: 8px 2px;
   display: grid;
   align-content: space-between;
   justify-items: center;
   color: var(--color-text);
+  border: 1px solid transparent;
 }
 
 .calendar-grid__day.is-outside {
@@ -48,13 +49,13 @@
 }
 
 .calendar-grid__day.is-selected {
-  background: var(--color-primary);
-  color: #fff;
-  box-shadow: var(--shadow-floating);
+  background: color-mix(in srgb, var(--color-primary) 10%, white);
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-primary) 18%, white);
 }
 
 .calendar-grid__day.is-today:not(.is-selected) {
-  border: 1px solid rgba(15, 159, 143, 0.26);
+  border: 1px solid var(--color-border);
 }
 
 .calendar-grid__day-dot {
@@ -71,7 +72,7 @@
 }
 
 .event-card {
-  padding: 18px;
+  padding: 16px;
   display: grid;
   gap: var(--space-3);
 }
@@ -84,7 +85,7 @@
 }
 
 .event-card__title {
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 700;
   color: var(--color-text);
 }

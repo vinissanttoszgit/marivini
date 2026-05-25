@@ -8,11 +8,11 @@
 
 .auth-card {
   width: min(100%, 430px);
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(229, 231, 235, 0.7);
-  border-radius: 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
   padding: 28px 22px;
-  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.1);
+  box-shadow: var(--shadow-soft);
 }
 
 .auth-brand {
@@ -26,15 +26,17 @@
   min-height: 38px;
   padding: 0 14px;
   border-radius: 999px;
-  background: var(--color-primary-light);
-  color: var(--color-primary-dark);
+  background: color-mix(in srgb, var(--color-primary) 8%, white);
+  color: var(--color-text);
   font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 14%, white);
 }
 
 .auth-brand__title {
   margin-top: 16px;
   font-size: 2rem;
   font-weight: 800;
+  letter-spacing: -0.05em;
 }
 
 .auth-brand__subtitle {

@@ -1,5 +1,6 @@
 import authService from "./services/authService.js";
 import { isSupabaseConfigured } from "./config/supabase.js";
+import { initializeTheme } from "./config/theme.js";
 import { createNavbar } from "./components/navbar.js";
 import { Modal } from "./components/modal.js";
 import { Toast } from "./components/toast.js";
@@ -34,6 +35,8 @@ let activeTab = "habits";
 init();
 
 async function init() {
+  initializeTheme();
+
   if (!isSupabaseConfigured) {
     toast.error("Preencha a URL e a ANON KEY do Supabase antes de usar o app.");
   }

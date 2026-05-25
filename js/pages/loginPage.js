@@ -1,4 +1,5 @@
 import { isSupabaseConfigured } from "../config/supabase.js";
+import { initializeTheme } from "../config/theme.js";
 import authService from "../services/authService.js";
 import { Toast } from "../components/toast.js";
 import { button } from "../components/button.js";
@@ -12,6 +13,8 @@ let mode = "login";
 init();
 
 async function init() {
+  initializeTheme();
+
   const session = await authService.getSession();
   if (session) {
     window.location.replace("./index.html");
