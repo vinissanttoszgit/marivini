@@ -10,7 +10,7 @@ export function createNavbar({ activeTab, onNavigate, onOpenSettings }) {
         <span>Calendário</span>
       </button>
       <button class="bottom-nav__item bottom-nav__item--icon" data-action="settings" aria-label="Configurações">
-        <span>⚙️</span>
+        <span class="bottom-nav__icon-glyph">⚙️</span>
       </button>
     </div>
   `;

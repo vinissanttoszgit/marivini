@@ -84,9 +84,15 @@
 }
 
 #header-add-habit-trigger {
-  font-size: 1.5rem;
+  padding: 0;
+}
+
+#header-add-habit-trigger span {
+  display: block;
+  font-size: 1.6rem;
   font-weight: 500;
   line-height: 1;
+  transform: translateY(-1px);
 }
 
 .floating-action {

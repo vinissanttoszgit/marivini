@@ -147,7 +147,7 @@
 
 .bottom-nav__list {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: var(--space-3);
 }
 
@@ -170,7 +170,16 @@
 }
 
 .bottom-nav__item--icon {
-  font-size: 1.1rem;
+  min-width: 52px;
+  min-height: 52px;
+  padding: 0;
+  justify-self: end;
+  font-size: 1rem;
+}
+
+.bottom-nav__icon-glyph {
+  display: block;
+  line-height: 1;
 }
 
 .icon-button:active,
