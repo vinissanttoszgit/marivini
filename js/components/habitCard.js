@@ -1,21 +1,13 @@
-function getCompactStatus(streakData) {
+function getCompactStatus(streakData, isCompleted) {
   if (streakData.missedTwoDaysRisk) {
     return "Não falhar";
   }
 
-  if (streakData.missedYesterday) {
-    return "Retomar";
-  }
-
-  return "Pendente";
+  return isCompleted ? "Feito" : "Pendente";
 }
 
 export function habitCard({ habit, isCompleted, streakData, isSelectionMode = false, isSelected = false }) {
-  const statusClass = streakData.missedTwoDaysRisk
-    ? "status-risk"
-    : streakData.missedYesterday
-      ? "status-warning"
-      : "status-safe";
+  const statusClass = streakData.missedTwoDaysRisk ? "status-risk" : "status-safe";
 
   return `
     <article
@@ -40,7 +32,7 @@ export function habitCard({ habit, isCompleted, streakData, isSelectionMode = fa
       </div>
       <div class="habit-card__footer">
         <div class="habit-card__footer-right">
-          <span class="habit-card__chip habit-card__status ${statusClass}">${getCompactStatus(streakData)}</span>
+          <span class="habit-card__chip habit-card__status ${statusClass}">${getCompactStatus(streakData, isCompleted)}</span>
           <span class="habit-card__chip habit-card__streak">🔥 ${streakData.currentStreak} dias</span>
         </div>
       </div>

@@ -23,8 +23,6 @@ export function calculateHabitStatus(logs, referenceDate) {
   let statusLabel = "No ritmo";
   if (missedTwoDaysRisk) {
     statusLabel = "Nao falhe hoje";
-  } else if (missedYesterday) {
-    statusLabel = "Retome hoje";
   }
 
   return {
