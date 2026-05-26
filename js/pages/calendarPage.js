@@ -14,6 +14,7 @@ import { validateRequired } from "../utils/validators.js";
 
 const LONG_PRESS_MS = 500;
 const POINTER_CANCEL_DISTANCE = 10;
+const PENDING_EVENTS_LIMIT = 20;
 
 const REMINDER_OPTIONS = [
   { value: "", label: "Sem lembrete" },
@@ -28,6 +29,7 @@ export function createCalendarPage(context) {
     currentMonth: new Date(),
     selectedDate: todayISO(),
     monthlyEvents: [],
+    pendingEvents: [],
     selectedEventIds: [],
     selectionMode: false
   };
@@ -103,6 +105,23 @@ export function createCalendarPage(context) {
     });
   }
 
+  function dedupeEvents(events) {
+    const seenIds = new Set();
+    return events.filter((event) => {
+      const normalizedId = String(event.id);
+      if (seenIds.has(normalizedId)) {
+        return false;
+      }
+
+      seenIds.add(normalizedId);
+      return true;
+    });
+  }
+
+  function getAllKnownEvents() {
+    return dedupeEvents(sortEvents([...state.monthlyEvents, ...state.pendingEvents]));
+  }
+
   function getEventsByDate() {
     return sortEvents(state.monthlyEvents).reduce((accumulator, event) => {
       accumulator[event.event_date] = accumulator[event.event_date] || [];
@@ -116,7 +135,14 @@ export function createCalendarPage(context) {
   }
 
   function getUpcomingEvents() {
-    return sortEvents(state.monthlyEvents.filter((event) => event.event_date > state.selectedDate));
+    const selectedEventIds = new Set(getSelectedDateEvents().map((event) => String(event.id)));
+    const startDate = todayISO();
+
+    return sortEvents(
+      state.pendingEvents.filter((event) => {
+        return event.event_date >= startDate && !selectedEventIds.has(String(event.id));
+      })
+    );
   }
 
   async function fetchMonthEvents(date) {
@@ -137,6 +163,15 @@ export function createCalendarPage(context) {
     state.monthlyEvents = [...events];
   }
 
+  async function loadPendingEvents() {
+    state.pendingEvents = sortEvents(
+      await eventsService.listPendingEvents({
+        startDate: todayISO(),
+        limit: PENDING_EVENTS_LIMIT
+      })
+    );
+  }
+
   function preloadAdjacentMonths() {
     [shiftMonth(state.currentMonth, -1), shiftMonth(state.currentMonth, 1)].forEach(async (monthDate) => {
       const monthKey = getMonthCacheKey(monthDate);
@@ -153,8 +188,13 @@ export function createCalendarPage(context) {
     });
   }
 
-  async function refreshMonthView(root, { preferCache = true } = {}) {
+  async function refreshCalendarData(root, { preferCache = true, reloadPending = true } = {}) {
     await loadMonth({ preferCache });
+
+    if (reloadPending) {
+      await loadPendingEvents();
+    }
+
     refreshContent(root);
     preloadAdjacentMonths();
   }
@@ -168,7 +208,7 @@ export function createCalendarPage(context) {
     syncSelectedDateWithCurrentMonth();
 
     try {
-      await refreshMonthView(root, { preferCache: true });
+      await refreshCalendarData(root, { preferCache: true, reloadPending: true });
     } catch (error) {
       state.currentMonth = previousMonth;
       state.selectedDate = previousSelectedDate;
@@ -186,7 +226,7 @@ export function createCalendarPage(context) {
     root.innerHTML = loadingState();
 
     try {
-      await refreshMonthView(root, { preferCache: true });
+      await refreshCalendarData(root, { preferCache: true, reloadPending: true });
     } catch (error) {
       context.toast.error(error.message || "Não foi possível carregar o calendário.");
       root.innerHTML = emptyState({
@@ -327,7 +367,11 @@ export function createCalendarPage(context) {
     root.querySelectorAll("[data-action='edit-event']").forEach((element) => {
       element.addEventListener("click", (event) => {
         event.stopPropagation();
-        const eventItem = state.monthlyEvents.find((item) => String(item.id) === String(element.dataset.id));
+
+        const eventItem = getAllKnownEvents().find(
+          (item) => String(item.id) === String(element.dataset.id)
+        );
+
         if (eventItem) {
           openEventModal(eventItem);
         }
@@ -504,7 +548,7 @@ export function createCalendarPage(context) {
         clearSelection();
         state.selectedDate = payload.eventDate;
         context.modal.close();
-        await refreshMonthView(context.root, { preferCache: false });
+        await refreshCalendarData(context.root, { preferCache: false, reloadPending: true });
       } catch (error) {
         context.toast.error(error.message || "Não foi possível salvar o evento.");
       }
@@ -517,11 +561,11 @@ export function createCalendarPage(context) {
     clearSelection();
     context.modal.close();
     context.toast.success(ids.length > 1 ? "Eventos excluídos." : "Evento excluído.");
-    await refreshMonthView(root, { preferCache: false });
+    await refreshCalendarData(root, { preferCache: false, reloadPending: true });
   }
 
   function openDeleteEventsModal(ids, root) {
-    const selectedEvents = state.monthlyEvents.filter((event) => ids.includes(String(event.id)));
+    const selectedEvents = getAllKnownEvents().filter((event) => ids.includes(String(event.id)));
     const firstTitle = selectedEvents[0]?.title ?? "este evento";
 
     context.modal.open({

@@ -24,6 +24,24 @@ async function listEventsByMonth({ startDate, endDate }) {
   return data ?? [];
 }
 
+async function listPendingEvents({ startDate, limit = 20 } = {}) {
+  ensureClient();
+
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .gte("event_date", startDate)
+    .order("event_date", { ascending: true })
+    .order("event_time", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
 async function listEventsByDate(date) {
   ensureClient();
   const { data, error } = await supabase
@@ -95,6 +113,7 @@ async function deleteEvent(id) {
 
 export default {
   listEventsByMonth,
+  listPendingEvents,
   listEventsByDate,
   createEvent,
   updateEvent,
