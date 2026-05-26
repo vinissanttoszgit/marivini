@@ -1,21 +1,30 @@
 import { formatReminderLabel, formatTimeLabel } from "../utils/dates.js";
 
-export function eventCard(event) {
+function formatEventDateLabel(isoDate) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short"
+  }).format(new Date(`${isoDate}T12:00:00`));
+}
+
+export function eventCard(event, { isSelectionMode = false, isSelected = false, showDate = false } = {}) {
+  const metaItems = [
+    showDate ? `<span class="pill">📅 ${formatEventDateLabel(event.event_date)}</span>` : "",
+    event.event_time ? `<span class="pill">⏰ ${formatTimeLabel(event.event_time)}</span>` : "",
+    event.reminder_minutes ? `<span class="pill">🔔 ${formatReminderLabel(event.reminder_minutes)}</span>` : ""
+  ].filter(Boolean);
+
   return `
-    <article class="card event-card">
+    <article
+      class="card event-card ${isSelectionMode ? "is-selection-mode" : ""} ${isSelected ? "is-selected" : ""}"
+      data-event-id="${event.id}"
+    >
       <div class="event-card__top">
-        <div>
+        <div class="event-card__content">
           <h3 class="event-card__title">${event.title}</h3>
-          ${event.description ? `<p>${event.description}</p>` : ""}
+          ${metaItems.length ? `<div class="event-card__meta">${metaItems.join("")}</div>` : ""}
         </div>
-        <div class="inline-actions" style="grid-template-columns:repeat(2, 44px); gap:8px;">
-          <button class="icon-button" data-action="edit-event" data-id="${event.id}" aria-label="Editar evento">✎</button>
-          <button class="icon-button" data-action="delete-event" data-id="${event.id}" aria-label="Excluir evento">🗑</button>
-        </div>
-      </div>
-      <div class="event-card__meta">
-        ${event.event_time ? `<span class="pill">⏰ ${formatTimeLabel(event.event_time)}</span>` : ""}
-        ${event.reminder_minutes ? `<span class="pill">🔔 ${formatReminderLabel(event.reminder_minutes)}</span>` : ""}
+        <button class="icon-button event-card__menu" data-action="edit-event" data-id="${event.id}" aria-label="Editar evento">⋯</button>
       </div>
     </article>
   `;

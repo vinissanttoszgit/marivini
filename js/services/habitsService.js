@@ -87,15 +87,21 @@ async function createHabit(payload) {
 async function updateHabit(id, payload) {
   ensureClient();
 
+  const updates = {
+    title: payload.title,
+    description: payload.description || null,
+    icon: payload.icon || "✨",
+    active_days: normalizeActiveDays(payload.active_days),
+    updated_at: new Date().toISOString()
+  };
+
+  if ("position" in payload) {
+    updates.position = payload.position;
+  }
+
   const { data, error } = await supabase
     .from("habits")
-    .update({
-      title: payload.title,
-      description: payload.description || null,
-      icon: payload.icon || "✨",
-      active_days: normalizeActiveDays(payload.active_days),
-      updated_at: new Date().toISOString()
-    })
+    .update(updates)
     .eq("id", id)
     .select()
     .single();
@@ -134,37 +140,11 @@ async function deleteHabits(ids) {
   }
 }
 
-async function reorderHabits(orderedHabits) {
-  ensureClient();
-
-  if (!orderedHabits?.length) {
-    return;
-  }
-
-  const results = await Promise.all(
-    orderedHabits.map((habit, index) =>
-      supabase
-        .from("habits")
-        .update({
-          position: index,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", habit.id)
-    )
-  );
-
-  const failed = results.find((result) => result.error);
-  if (failed?.error) {
-    throw failed.error;
-  }
-}
-
 export default {
   listHabits,
   listHabitsIncludingInactive,
   createHabit,
   updateHabit,
   deleteHabit,
-  deleteHabits,
-  reorderHabits
+  deleteHabits
 };

@@ -20,9 +20,7 @@ import { validateRequired } from "../utils/validators.js";
 const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "🌙"];
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const LONG_PRESS_MS = 500;
-const CLICK_GUARD_MS = 900;
-const AUTO_SCROLL_EDGE_PX = 90;
-const AUTO_SCROLL_MAX_SPEED = 14;
+const POINTER_CANCEL_DISTANCE = 10;
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "SEG" },
   { value: 2, label: "TER" },
@@ -40,28 +38,12 @@ export function createHabitsPage(context) {
     recentLogs: [],
     selectedDate: todayISO(),
     selectedHabitIds: [],
-    selectionMode: false,
-    reorderSyncPending: false
+    selectionMode: false
   };
 
-  let activeDrag = null;
-  let suppressNextHabitClick = false;
-  let suppressClickUntil = 0;
-
-  function suppressUpcomingHabitClick(duration = CLICK_GUARD_MS) {
-    suppressNextHabitClick = true;
-    suppressClickUntil = Math.max(suppressClickUntil, Date.now() + duration);
-  }
-
-  function shouldSuppressHabitClick() {
-    if (Date.now() >= suppressClickUntil) {
-      suppressNextHabitClick = false;
-      suppressClickUntil = 0;
-      return false;
-    }
-
-    return suppressNextHabitClick || Date.now() < suppressClickUntil;
-  }
+  let iconPickerCleanup = null;
+  let consumedLongPressHabitId = null;
+  let consumedLongPressUntil = 0;
 
   function normalizeActiveDays(activeDays) {
     if (!Array.isArray(activeDays) || !activeDays.length) {
@@ -87,6 +69,27 @@ export function createHabitsPage(context) {
     return parseISODate(state.selectedDate);
   }
 
+  function getHabitSortValue(habit) {
+    const position = Number(habit?.position);
+    return Number.isFinite(position) ? position : Number.MAX_SAFE_INTEGER;
+  }
+
+  function sortHabits(habits) {
+    return [...habits].sort((left, right) => {
+      const positionDiff = getHabitSortValue(left) - getHabitSortValue(right);
+      if (positionDiff !== 0) {
+        return positionDiff;
+      }
+
+      const createdAtDiff = String(left.created_at ?? "").localeCompare(String(right.created_at ?? ""));
+      if (createdAtDiff !== 0) {
+        return createdAtDiff;
+      }
+
+      return String(left.id ?? "").localeCompare(String(right.id ?? ""));
+    });
+  }
+
   function getVisibleHabits() {
     const weekday = getWeekdayIndex(state.selectedDate);
     return state.habits.filter((habit) => normalizeActiveDays(habit.active_days).includes(weekday));
@@ -100,11 +103,45 @@ export function createHabitsPage(context) {
     return formatHabitDateLabel(state.selectedDate);
   }
 
+  function getExistingHabitPriority(habit) {
+    const position = Number(habit?.position);
+    return Number.isFinite(position) ? Math.max(1, position + 1) : 1;
+  }
+
+  function getDefaultNewHabitPriority() {
+    return state.habits.length + 1;
+  }
+
+  function consumeLongPressClick(habitId) {
+    consumedLongPressHabitId = String(habitId);
+    consumedLongPressUntil = Date.now() + 400;
+  }
+
+  function shouldIgnoreLongPressClick(habitId) {
+    const matchesTarget = consumedLongPressHabitId === String(habitId);
+    const isActive = Date.now() < consumedLongPressUntil;
+
+    if (matchesTarget && isActive) {
+      consumedLongPressHabitId = null;
+      consumedLongPressUntil = 0;
+      return true;
+    }
+
+    if (!isActive) {
+      consumedLongPressHabitId = null;
+      consumedLongPressUntil = 0;
+    }
+
+    return false;
+  }
+
   async function loadHabits() {
-    state.habits = (await habitsService.listHabits()).map((habit) => ({
-      ...habit,
-      active_days: normalizeActiveDays(habit.active_days)
-    }));
+    state.habits = sortHabits(
+      (await habitsService.listHabits()).map((habit) => ({
+        ...habit,
+        active_days: normalizeActiveDays(habit.active_days)
+      }))
+    );
   }
 
   async function loadSelectedDateData() {
@@ -172,7 +209,7 @@ export function createHabitsPage(context) {
         ${progressCard({ completed, total: visibleHabits.length })}
         ${
           visibleHabits.length
-            ? `<section class="habit-list ${state.selectionMode ? "is-reorder-enabled" : ""}">${visibleHabits
+            ? `<section class="habit-list">${visibleHabits
                 .map((habit) =>
                   habitCard({
                     habit,
@@ -294,18 +331,20 @@ export function createHabitsPage(context) {
   async function persistHabit({ habit, payload }) {
     const savedHabit = habit
       ? await habitsService.updateHabit(habit.id, payload)
-      : await habitsService.createHabit({
-          ...payload,
-          position: state.habits.length
-        });
+      : await habitsService.createHabit(payload);
 
-    state.habits = habit
-      ? state.habits.map((item) =>
-          String(item.id) === String(habit.id)
-            ? { ...savedHabit, active_days: normalizeActiveDays(savedHabit.active_days) }
-            : item
-        )
-      : [...state.habits, { ...savedHabit, active_days: normalizeActiveDays(savedHabit.active_days) }];
+    const normalizedHabit = {
+      ...savedHabit,
+      active_days: normalizeActiveDays(savedHabit.active_days)
+    };
+
+    state.habits = sortHabits(
+      habit
+        ? state.habits.map((item) =>
+            String(item.id) === String(habit.id) ? normalizedHabit : item
+          )
+        : [...state.habits, normalizedHabit]
+    );
 
     clearSelection();
     context.modal.close();
@@ -343,13 +382,45 @@ export function createHabitsPage(context) {
     });
   }
 
+  function bindPriorityStepper() {
+    const hiddenInput = document.querySelector('#habit-form input[name="priority"]');
+    const valueElement = document.querySelector("#habit-priority-value");
+    const decrementButton = document.querySelector('[data-action="decrement-priority"]');
+    const incrementButton = document.querySelector('[data-action="increment-priority"]');
+
+    if (!hiddenInput || !valueElement || !decrementButton || !incrementButton) {
+      return;
+    }
+
+    const syncValue = (nextValue) => {
+      const normalizedValue = Math.max(1, Number(nextValue) || 1);
+      hiddenInput.value = String(normalizedValue);
+      valueElement.textContent = String(normalizedValue);
+      decrementButton.disabled = normalizedValue <= 1;
+    };
+
+    decrementButton.addEventListener("click", () => {
+      syncValue(Number(hiddenInput.value) - 1);
+    });
+
+    incrementButton.addEventListener("click", () => {
+      syncValue(Number(hiddenInput.value) + 1);
+    });
+
+    syncValue(hiddenInput.value);
+  }
+
   function bindIconPicker() {
+    iconPickerCleanup?.();
+
     const trigger = document.querySelector("#habit-icon-trigger");
     const picker = document.querySelector("#habit-icon-picker");
     const hiddenInput = document.querySelector('#habit-form input[name="icon"]');
     const preview = document.querySelector("#selected-habit-icon");
+    const group = document.querySelector(".habit-title-group");
 
-    if (!trigger || !picker || !hiddenInput || !preview) {
+    if (!trigger || !picker || !hiddenInput || !preview || !group) {
+      iconPickerCleanup = null;
       return;
     }
 
@@ -358,7 +429,14 @@ export function createHabitsPage(context) {
       trigger.setAttribute("aria-expanded", String(expanded));
     };
 
+    const handleDocumentClick = (event) => {
+      if (!group.contains(event.target)) {
+        setExpanded(false);
+      }
+    };
+
     trigger.addEventListener("click", (event) => {
+      event.preventDefault();
       event.stopPropagation();
       setExpanded(picker.hidden);
     });
@@ -377,11 +455,11 @@ export function createHabitsPage(context) {
       });
     });
 
-    document.addEventListener("click", (event) => {
-      if (!event.target.closest(".habit-title-group")) {
-        setExpanded(false);
-      }
-    });
+    document.addEventListener("click", handleDocumentClick);
+    iconPickerCleanup = () => {
+      document.removeEventListener("click", handleDocumentClick);
+      iconPickerCleanup = null;
+    };
   }
 
   function readSelectedWeekdays() {
@@ -394,6 +472,7 @@ export function createHabitsPage(context) {
 
   function openHabitModal(habit = null) {
     const selectedIcon = habit?.icon ?? "✨";
+    const priority = habit ? getExistingHabitPriority(habit) : getDefaultNewHabitPriority();
 
     context.modal.open({
       title: habit ? "Editar hábito" : "Novo hábito",
@@ -432,6 +511,15 @@ export function createHabitsPage(context) {
               ).join("")}
             </div>
           </div>
+          <div class="priority-field">
+            <span class="weekday-field__label">Prioridade</span>
+            <div class="priority-stepper" aria-label="Prioridade do hábito">
+              <button type="button" class="priority-stepper__button" data-action="decrement-priority" aria-label="Diminuir prioridade">-</button>
+              <span class="priority-stepper__value" id="habit-priority-value">${priority}</span>
+              <button type="button" class="priority-stepper__button" data-action="increment-priority" aria-label="Aumentar prioridade">+</button>
+              <input type="hidden" name="priority" value="${priority}" />
+            </div>
+          </div>
           <div class="weekday-field">
             <span class="weekday-field__label">Frequência</span>
             ${getModalWeekdayMarkup(habit?.active_days)}
@@ -445,17 +533,20 @@ export function createHabitsPage(context) {
     });
 
     bindIconPicker();
+    bindPriorityStepper();
     bindWeekdayPicker();
 
     document.querySelector("#habit-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const formData = new FormData(event.currentTarget);
       const activeDays = readSelectedWeekdays();
+      const priorityValue = Math.max(1, Number(formData.get("priority")) || 1);
       const payload = {
         title: String(formData.get("title")).trim(),
         description: null,
         icon: String(formData.get("icon")).trim(),
-        active_days: activeDays
+        active_days: activeDays,
+        position: priorityValue - 1
       };
 
       const validation = validateRequired(payload.title, "Informe o nome do hábito.");
@@ -511,73 +602,6 @@ export function createHabitsPage(context) {
     });
   }
 
-  function getAdjacentHabitSibling(startElement, direction, draggedElement) {
-    let sibling =
-      direction === "previous" ? startElement.previousElementSibling : startElement.nextElementSibling;
-
-    while (sibling && sibling === draggedElement) {
-      sibling =
-        direction === "previous" ? sibling.previousElementSibling : sibling.nextElementSibling;
-    }
-
-    return sibling;
-  }
-
-  function lockDragScroll() {
-    document.body.classList.add("is-habit-dragging");
-  }
-
-  function unlockDragScroll() {
-    document.body.classList.remove("is-habit-dragging");
-  }
-
-  function syncSelectionUi(root) {
-    const pageStack = root.querySelector(".page-stack");
-    const list = root.querySelector(".habit-list");
-    const selectionSet = getSelectionSet();
-
-    pageStack?.classList.toggle("page-stack--selection-mode", state.selectionMode);
-    list?.classList.toggle("is-reorder-enabled", state.selectionMode);
-
-    root.querySelectorAll("[data-habit-id]").forEach((cardElement) => {
-      const isSelected = selectionSet.has(String(cardElement.dataset.habitId));
-      const checkElement = cardElement.querySelector(".habit-card__check");
-      const titleElement = cardElement.querySelector(".habit-card__title");
-      const title = titleElement?.textContent?.trim() || "";
-
-      cardElement.classList.toggle("is-selection-mode", state.selectionMode);
-      cardElement.classList.toggle("is-selected", isSelected);
-      cardElement.setAttribute("aria-pressed", String(state.selectionMode ? isSelected : cardElement.classList.contains("is-complete")));
-      cardElement.setAttribute(
-        "aria-label",
-        state.selectionMode ? `Selecionar ${title}` : `Marcar hábito ${title}`
-      );
-
-      if (checkElement) {
-        checkElement.textContent = state.selectionMode
-          ? isSelected
-            ? "✓"
-            : ""
-          : cardElement.classList.contains("is-complete")
-            ? "✓"
-            : "";
-      }
-    });
-
-    const existingBar = root.querySelector(".habit-selection-floating-bar");
-    if (state.selectionMode) {
-      if (existingBar) {
-        existingBar.outerHTML = getSelectionBarMarkup();
-      } else {
-        root.insertAdjacentHTML("beforeend", getSelectionBarMarkup());
-      }
-
-      bindSelectionBar(root);
-    } else {
-      existingBar?.remove();
-    }
-  }
-
   function bindSelectionBar(root) {
     root.querySelector("#cancel-habit-selection")?.addEventListener("click", () => {
       clearSelection();
@@ -589,274 +613,6 @@ export function createHabitsPage(context) {
         openDeleteHabitsModal(state.selectedHabitIds);
       }
     });
-  }
-
-  function movePlaceholder(list, placeholder, draggedElement, draggedCenterY) {
-    let previousSibling = getAdjacentHabitSibling(placeholder, "previous", draggedElement);
-
-    while (previousSibling) {
-      const rect = previousSibling.getBoundingClientRect();
-      if (draggedCenterY >= rect.top + rect.height / 2) {
-        break;
-      }
-
-      list.insertBefore(placeholder, previousSibling);
-      previousSibling = getAdjacentHabitSibling(placeholder, "previous", draggedElement);
-    }
-
-    let nextSibling = getAdjacentHabitSibling(placeholder, "next", draggedElement);
-
-    while (nextSibling) {
-      const rect = nextSibling.getBoundingClientRect();
-      if (draggedCenterY <= rect.top + rect.height / 2) {
-        break;
-      }
-
-      const nextAnchor = getAdjacentHabitSibling(nextSibling, "next", draggedElement);
-      list.insertBefore(placeholder, nextAnchor);
-      nextSibling = getAdjacentHabitSibling(placeholder, "next", draggedElement);
-    }
-  }
-
-  function startDrag(root, element, pointerId, clientX, clientY) {
-    if (activeDrag) {
-      return;
-    }
-
-    const list = root.querySelector(".habit-list");
-    if (!list) {
-      return;
-    }
-
-    const rect = element.getBoundingClientRect();
-    const originalNextSibling = element.nextSibling;
-    const placeholder = document.createElement("div");
-    placeholder.className = "habit-drag-placeholder";
-    placeholder.style.height = `${rect.height}px`;
-    placeholder.style.width = `${rect.width}px`;
-
-    list.insertBefore(placeholder, element.nextSibling);
-
-    element.classList.add("is-dragging");
-    list.classList.add("is-reordering");
-    lockDragScroll();
-
-    element.style.width = `${rect.width}px`;
-    element.style.height = `${rect.height}px`;
-    element.style.left = `${rect.left}px`;
-    element.style.top = `${rect.top}px`;
-
-    activeDrag = {
-      habitId: String(element.dataset.habitId),
-      pointerId,
-      element,
-      placeholder,
-      list,
-      originalNextSibling,
-      offsetX: clientX - rect.left,
-      offsetY: clientY - rect.top,
-      initialLeft: rect.left,
-      initialTop: rect.top,
-      lastClientX: clientX,
-      lastClientY: clientY,
-      dragFrameId: null,
-      autoScrollFrameId: null
-    };
-
-    suppressUpcomingHabitClick();
-    element.setPointerCapture?.(pointerId);
-    scheduleDragFrame();
-    startAutoScrollLoop();
-  }
-
-  function updateDraggedPosition(clientX, clientY) {
-    if (!activeDrag) {
-      return;
-    }
-
-    const { element, offsetY, offsetX, list, placeholder, initialLeft, initialTop } = activeDrag;
-    const top = clientY - offsetY;
-    const left = clientX - offsetX;
-    const centerY = top + element.offsetHeight / 2;
-
-    element.style.transform = `translate3d(${left - initialLeft}px, ${top - initialTop}px, 0)`;
-    movePlaceholder(list, placeholder, element, centerY);
-  }
-
-  function flushDragFrame() {
-    if (!activeDrag) {
-      return;
-    }
-
-    activeDrag.dragFrameId = null;
-    updateDraggedPosition(activeDrag.lastClientX, activeDrag.lastClientY);
-  }
-
-  function scheduleDragFrame() {
-    if (!activeDrag || activeDrag.dragFrameId !== null) {
-      return;
-    }
-
-    activeDrag.dragFrameId = requestAnimationFrame(() => {
-      flushDragFrame();
-    });
-  }
-
-  function getAutoScrollSpeed(clientY) {
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-
-    if (clientY < AUTO_SCROLL_EDGE_PX) {
-      const intensity = (AUTO_SCROLL_EDGE_PX - clientY) / AUTO_SCROLL_EDGE_PX;
-      return -Math.max(1, Math.round(AUTO_SCROLL_MAX_SPEED * intensity));
-    }
-
-    if (clientY > viewportHeight - AUTO_SCROLL_EDGE_PX) {
-      const intensity = (clientY - (viewportHeight - AUTO_SCROLL_EDGE_PX)) / AUTO_SCROLL_EDGE_PX;
-      return Math.max(1, Math.round(AUTO_SCROLL_MAX_SPEED * intensity));
-    }
-
-    return 0;
-  }
-
-  function runAutoScrollFrame() {
-    if (!activeDrag) {
-      return;
-    }
-
-    const speed = getAutoScrollSpeed(activeDrag.lastClientY);
-
-    if (speed) {
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - viewportHeight);
-      const nextScrollY = Math.min(maxScrollY, Math.max(0, window.scrollY + speed));
-      const delta = nextScrollY - window.scrollY;
-
-      if (delta) {
-        window.scrollBy(0, delta);
-        updateDraggedPosition(activeDrag.lastClientX, activeDrag.lastClientY);
-      }
-    }
-
-    activeDrag.autoScrollFrameId = requestAnimationFrame(() => {
-      runAutoScrollFrame();
-    });
-  }
-
-  function startAutoScrollLoop() {
-    if (!activeDrag || activeDrag.autoScrollFrameId !== null) {
-      return;
-    }
-
-    activeDrag.autoScrollFrameId = requestAnimationFrame(() => {
-      runAutoScrollFrame();
-    });
-  }
-
-  function applyVisibleOrder(orderedVisibleIds) {
-    const visibleMap = new Map(getVisibleHabits().map((habit) => [String(habit.id), habit]));
-    const reorderedVisibleHabits = orderedVisibleIds
-      .map((habitId) => visibleMap.get(String(habitId)))
-      .filter(Boolean);
-    const orderedVisibleSet = new Set(orderedVisibleIds.map(String));
-    let visibleIndex = 0;
-
-    state.habits = state.habits
-      .map((habit) =>
-        orderedVisibleSet.has(String(habit.id)) ? reorderedVisibleHabits[visibleIndex++] : habit
-      )
-      .map((habit, index) => ({
-        ...habit,
-        position: index
-      }));
-  }
-
-  async function persistVisibleOrder(root, list) {
-    if (state.reorderSyncPending) {
-      return;
-    }
-
-    const previousHabits = state.habits.map((habit) => ({ ...habit }));
-    const orderedVisibleIds = [...list.querySelectorAll("[data-habit-id]")].map(
-      (element) => element.dataset.habitId
-    );
-
-    applyVisibleOrder(orderedVisibleIds);
-    state.reorderSyncPending = true;
-
-    try {
-      await habitsService.reorderHabits(state.habits);
-    } catch (error) {
-      state.habits = previousHabits;
-      refreshContent(root);
-      context.toast.error(error.message || "Não foi possível salvar a nova ordem.");
-    } finally {
-      state.reorderSyncPending = false;
-    }
-  }
-
-  function cleanupDragState(dragState) {
-    if (!dragState) {
-      return;
-    }
-
-    const { element, placeholder, list, pointerId, dragFrameId, autoScrollFrameId } = dragState;
-
-    if (dragFrameId !== null) {
-      cancelAnimationFrame(dragFrameId);
-    }
-
-    if (autoScrollFrameId !== null) {
-      cancelAnimationFrame(autoScrollFrameId);
-    }
-
-    if (element.hasPointerCapture?.(pointerId)) {
-      element.releasePointerCapture(pointerId);
-    }
-
-    placeholder?.remove();
-    element.classList.remove("is-dragging");
-    list.classList.remove("is-reordering");
-
-    element.style.width = "";
-    element.style.height = "";
-    element.style.left = "";
-    element.style.top = "";
-    element.style.transform = "";
-    element.style.transition = "";
-
-    unlockDragScroll();
-  }
-
-  async function finishDrag(root) {
-    if (!activeDrag) {
-      return;
-    }
-
-    const dragState = activeDrag;
-    const { element, placeholder, list } = dragState;
-    activeDrag = null;
-    suppressUpcomingHabitClick();
-    list.insertBefore(element, placeholder);
-    cleanupDragState(dragState);
-    await persistVisibleOrder(root, list);
-  }
-
-  function cancelDrag() {
-    if (!activeDrag) {
-      return;
-    }
-
-    const dragState = activeDrag;
-    const { element, list, originalNextSibling } = dragState;
-    activeDrag = null;
-
-    if (originalNextSibling && originalNextSibling.parentNode === list) {
-      list.insertBefore(element, originalNextSibling);
-    } else {
-      list.appendChild(element);
-    }
-
-    cleanupDragState(dragState);
   }
 
   function bindHabitCard(root, element) {
@@ -873,17 +629,16 @@ export function createHabitsPage(context) {
 
     const cleanupSession = () => {
       clearPressTimer();
+
+      if (pointerSession?.pointerId !== undefined && element.hasPointerCapture?.(pointerSession.pointerId)) {
+        element.releasePointerCapture(pointerSession.pointerId);
+      }
+
       pointerSession = null;
     };
 
-    const releasePointer = (pointerId) => {
-      if (element.hasPointerCapture?.(pointerId)) {
-        element.releasePointerCapture(pointerId);
-      }
-    };
-
     element.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || event.target.closest("[data-action='edit']") || activeDrag) {
+      if (event.button !== 0 || event.target.closest("[data-action='edit']")) {
         return;
       }
 
@@ -891,8 +646,6 @@ export function createHabitsPage(context) {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
-        lastX: event.clientX,
-        lastY: event.clientY,
         longPressFired: false
       };
 
@@ -905,14 +658,15 @@ export function createHabitsPage(context) {
         }
 
         pointerSession.longPressFired = true;
-        suppressUpcomingHabitClick();
+        consumeLongPressClick(habitId);
 
         if (!state.selectionMode) {
           enterSelectionMode(habitId);
+        } else if (!getSelectionSet().has(habitId)) {
+          toggleSelection(habitId);
         }
 
-        syncSelectionUi(root);
-        startDrag(root, element, event.pointerId, pointerSession.lastX, pointerSession.lastY);
+        refreshContent(root);
       }, LONG_PRESS_MS);
     });
 
@@ -921,58 +675,27 @@ export function createHabitsPage(context) {
         return;
       }
 
-      pointerSession.lastX = event.clientX;
-      pointerSession.lastY = event.clientY;
+      const movedX = Math.abs(event.clientX - pointerSession.startX);
+      const movedY = Math.abs(event.clientY - pointerSession.startY);
 
-      if (activeDrag && activeDrag.pointerId === event.pointerId) {
-        event.preventDefault();
-        activeDrag.lastClientX = event.clientX;
-        activeDrag.lastClientY = event.clientY;
-        scheduleDragFrame();
-        return;
+      if (movedX > POINTER_CANCEL_DISTANCE || movedY > POINTER_CANCEL_DISTANCE) {
+        clearPressTimer();
       }
     });
 
-    element.addEventListener("pointerup", async (event) => {
+    element.addEventListener("pointerup", (event) => {
       if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
-        return;
-      }
-
-      const wasDragging = activeDrag && activeDrag.pointerId === event.pointerId;
-
-      if (wasDragging) {
-        event.preventDefault();
-        suppressUpcomingHabitClick();
-        await finishDrag(root);
-        cleanupSession();
         return;
       }
 
       if (pointerSession.longPressFired) {
         event.preventDefault();
-        suppressUpcomingHabitClick();
-        releasePointer(event.pointerId);
-        cleanupSession();
-        return;
       }
 
-      releasePointer(event.pointerId);
       cleanupSession();
     });
 
-    element.addEventListener("pointercancel", (event) => {
-      if (!pointerSession || pointerSession.pointerId !== event.pointerId) {
-        return;
-      }
-
-      suppressUpcomingHabitClick();
-
-      if (activeDrag && activeDrag.pointerId === event.pointerId) {
-        cancelDrag();
-      } else {
-        releasePointer(event.pointerId);
-      }
-
+    element.addEventListener("pointercancel", () => {
       cleanupSession();
     });
 
@@ -981,11 +704,9 @@ export function createHabitsPage(context) {
         return;
       }
 
-      if (shouldSuppressHabitClick()) {
+      if (shouldIgnoreLongPressClick(habitId)) {
         event.preventDefault();
         event.stopPropagation();
-        suppressNextHabitClick = false;
-        suppressClickUntil = 0;
         return;
       }
 
