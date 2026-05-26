@@ -5,7 +5,6 @@ import { emptyState } from "../components/emptyState.js";
 import { eventCard } from "../components/eventCard.js";
 import { loadingState } from "../components/loadingState.js";
 import {
-  formatLongDate,
   formatMonthYear,
   getCalendarMonthBounds,
   shiftMonth,
@@ -32,8 +31,24 @@ export function createCalendarPage(context) {
     selectedEventIds: [],
     selectionMode: false
   };
+
+  const monthCache = new Map();
   let consumedLongPressEventId = null;
   let consumedLongPressUntil = 0;
+
+  function getMonthCacheKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function syncSelectedDateWithCurrentMonth() {
+    const selectedDay = Number(String(state.selectedDate).split("-")[2]) || 1;
+    const year = state.currentMonth.getFullYear();
+    const month = state.currentMonth.getMonth();
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const nextDay = Math.min(selectedDay, lastDayOfMonth);
+
+    state.selectedDate = new Date(year, month, nextDay).toLocaleDateString("en-CA");
+  }
 
   function getSelectionSet() {
     return new Set(state.selectedEventIds.map(String));
@@ -104,9 +119,61 @@ export function createCalendarPage(context) {
     return sortEvents(state.monthlyEvents.filter((event) => event.event_date > state.selectedDate));
   }
 
-  async function loadMonth() {
-    const { startDate, endDate } = getCalendarMonthBounds(state.currentMonth);
-    state.monthlyEvents = sortEvents(await eventsService.listEventsByMonth({ startDate, endDate }));
+  async function fetchMonthEvents(date) {
+    const { startDate, endDate } = getCalendarMonthBounds(date);
+    return sortEvents(await eventsService.listEventsByMonth({ startDate, endDate }));
+  }
+
+  async function loadMonth({ preferCache = true } = {}) {
+    const monthKey = getMonthCacheKey(state.currentMonth);
+
+    if (preferCache && monthCache.has(monthKey)) {
+      state.monthlyEvents = [...monthCache.get(monthKey)];
+      return;
+    }
+
+    const events = await fetchMonthEvents(state.currentMonth);
+    monthCache.set(monthKey, events);
+    state.monthlyEvents = [...events];
+  }
+
+  function preloadAdjacentMonths() {
+    [shiftMonth(state.currentMonth, -1), shiftMonth(state.currentMonth, 1)].forEach(async (monthDate) => {
+      const monthKey = getMonthCacheKey(monthDate);
+      if (monthCache.has(monthKey)) {
+        return;
+      }
+
+      try {
+        const events = await fetchMonthEvents(monthDate);
+        monthCache.set(monthKey, events);
+      } catch {
+        // Ignora falhas de preload para nao interferir na navegacao principal.
+      }
+    });
+  }
+
+  async function refreshMonthView(root, { preferCache = true } = {}) {
+    await loadMonth({ preferCache });
+    refreshContent(root);
+    preloadAdjacentMonths();
+  }
+
+  async function changeMonth(root, amount) {
+    const previousMonth = state.currentMonth;
+    const previousSelectedDate = state.selectedDate;
+
+    clearSelection();
+    state.currentMonth = shiftMonth(state.currentMonth, amount);
+    syncSelectedDateWithCurrentMonth();
+
+    try {
+      await refreshMonthView(root, { preferCache: true });
+    } catch (error) {
+      state.currentMonth = previousMonth;
+      state.selectedDate = previousSelectedDate;
+      context.toast.error(error.message || "Não foi possível carregar este mês.");
+    }
   }
 
   async function render(root) {
@@ -119,8 +186,7 @@ export function createCalendarPage(context) {
     root.innerHTML = loadingState();
 
     try {
-      await loadMonth();
-      refreshContent(root);
+      await refreshMonthView(root, { preferCache: true });
     } catch (error) {
       context.toast.error(error.message || "Não foi possível carregar o calendário.");
       root.innerHTML = emptyState({
@@ -154,19 +220,12 @@ export function createCalendarPage(context) {
       <div class="page-stack ${state.selectionMode ? "page-stack--selection-mode" : ""}">
         <section class="card calendar-card">
           <div class="calendar-header">
-            <button class="icon-button" id="prev-month" aria-label="Mês anterior">‹</button>
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-month" aria-label="Mês anterior"></button>
             <div class="calendar-header__label">${formatMonthYear(state.currentMonth)}</div>
-            <button class="icon-button" id="next-month" aria-label="Próximo mês">›</button>
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-month" aria-label="Próximo mês"></button>
           </div>
           ${calendarGrid({ currentDate: state.currentMonth, selectedDate: state.selectedDate, eventsByDate })}
         </section>
-
-        <div class="section-row">
-          <div>
-            <h2 class="section-title">${formatLongDate(state.selectedDate)}</h2>
-            <p>${selectedEvents.length ? "Eventos programados para este dia." : "Sem compromissos agendados."}</p>
-          </div>
-        </div>
 
         ${
           selectedEvents.length
@@ -178,12 +237,7 @@ export function createCalendarPage(context) {
                   })
                 )
                 .join("")}</section>`
-            : emptyState({
-                icon: "➕",
-                title: "Nada por aqui",
-                description: "Crie um evento para organizar seu dia.",
-                action: button("Adicionar evento", "primary", 'id="empty-create-event"')
-              })
+            : ""
         }
 
         ${
@@ -255,15 +309,11 @@ export function createCalendarPage(context) {
 
   function bind(root) {
     root.querySelector("#prev-month").addEventListener("click", async () => {
-      clearSelection();
-      state.currentMonth = shiftMonth(state.currentMonth, -1);
-      await render(root);
+      await changeMonth(root, -1);
     });
 
     root.querySelector("#next-month").addEventListener("click", async () => {
-      clearSelection();
-      state.currentMonth = shiftMonth(state.currentMonth, 1);
-      await render(root);
+      await changeMonth(root, 1);
     });
 
     root.querySelectorAll("[data-date]").forEach((buttonElement) => {
@@ -273,8 +323,6 @@ export function createCalendarPage(context) {
         refreshContent(root);
       });
     });
-
-    root.querySelector("#empty-create-event")?.addEventListener("click", () => openEventModal());
 
     root.querySelectorAll("[data-action='edit-event']").forEach((element) => {
       element.addEventListener("click", (event) => {
@@ -451,10 +499,12 @@ export function createCalendarPage(context) {
           await eventsService.createEvent(payload);
           context.toast.success("Evento criado.");
         }
+
+        monthCache.clear();
         clearSelection();
         state.selectedDate = payload.eventDate;
         context.modal.close();
-        await render(context.root);
+        await refreshMonthView(context.root, { preferCache: false });
       } catch (error) {
         context.toast.error(error.message || "Não foi possível salvar o evento.");
       }
@@ -463,10 +513,11 @@ export function createCalendarPage(context) {
 
   async function removeEvents(ids, root) {
     await Promise.all(ids.map((id) => eventsService.deleteEvent(id)));
+    monthCache.clear();
     clearSelection();
     context.modal.close();
     context.toast.success(ids.length > 1 ? "Eventos excluídos." : "Evento excluído.");
-    await render(root);
+    await refreshMonthView(root, { preferCache: false });
   }
 
   function openDeleteEventsModal(ids, root) {

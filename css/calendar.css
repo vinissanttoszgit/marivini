@@ -15,6 +15,29 @@
   color: var(--color-text);
 }
 
+.calendar-header .habit-date-nav__arrow {
+  position: relative;
+}
+
+.calendar-header .habit-date-nav__arrow::before {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  top: 50%;
+  left: 50%;
+}
+
+.calendar-header .habit-date-nav__arrow--prev::before {
+  transform: translate(-40%, -50%) rotate(-135deg);
+}
+
+.calendar-header .habit-date-nav__arrow--next::before {
+  transform: translate(-60%, -50%) rotate(45deg);
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
