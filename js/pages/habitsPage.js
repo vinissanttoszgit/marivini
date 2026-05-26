@@ -17,7 +17,7 @@ import {
 import { calculateHabitStatus } from "../utils/streak.js";
 import { validateRequired } from "../utils/validators.js";
 
-const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "🌙"];
+const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "🌙", "🏋️", "🧹", "💊", "🎯"];
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const LONG_PRESS_MS = 500;
 const POINTER_CANCEL_DISTANCE = 10;
