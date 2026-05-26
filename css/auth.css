@@ -26,10 +26,10 @@
   min-height: 38px;
   padding: 0 14px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-primary) 8%, white);
-  color: var(--color-text);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
   font-weight: 700;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 14%, white);
+  border: 1px solid var(--color-primary-border);
 }
 
 .auth-brand__title {
@@ -52,7 +52,7 @@
 .auth-note {
   padding: 14px;
   border-radius: var(--radius-md);
-  background: #fffbeb;
-  color: #92400e;
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
   font-size: 0.9rem;
 }

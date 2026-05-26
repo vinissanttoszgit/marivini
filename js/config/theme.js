@@ -4,6 +4,7 @@ const THEME_KEYS = [
   "color-primary",
   "color-primary-dark",
   "color-primary-light",
+  "color-on-primary",
   "color-bg",
   "color-surface",
   "color-surface-soft",
@@ -20,7 +21,8 @@ export const THEME_PRESETS = [
     variables: {
       "color-primary": "#0f9f8f",
       "color-primary-dark": "#087f73",
-      "color-primary-light": "#e6f7f5"
+      "color-primary-light": "#e6f7f5",
+      "color-on-primary": "#ffffff"
     }
   },
   {
@@ -30,7 +32,8 @@ export const THEME_PRESETS = [
     variables: {
       "color-primary": "#e86a92",
       "color-primary-dark": "#c75179",
-      "color-primary-light": "#fdebf2"
+      "color-primary-light": "#fdebf2",
+      "color-on-primary": "#ffffff"
     }
   },
   {
@@ -40,7 +43,8 @@ export const THEME_PRESETS = [
     variables: {
       "color-primary": "#d4a106",
       "color-primary-dark": "#ad8400",
-      "color-primary-light": "#fff7d6"
+      "color-primary-light": "#fff7d6",
+      "color-on-primary": "#2f2412"
     }
   },
   {
@@ -50,7 +54,8 @@ export const THEME_PRESETS = [
     variables: {
       "color-primary": "#3b82f6",
       "color-primary-dark": "#1d4ed8",
-      "color-primary-light": "#e8f0ff"
+      "color-primary-light": "#e8f0ff",
+      "color-on-primary": "#ffffff"
     }
   },
   {
@@ -60,7 +65,8 @@ export const THEME_PRESETS = [
     variables: {
       "color-primary": "#8b5cf6",
       "color-primary-dark": "#6d28d9",
-      "color-primary-light": "#f1ebff"
+      "color-primary-light": "#f1ebff",
+      "color-on-primary": "#ffffff"
     }
   },
   {
@@ -70,7 +76,8 @@ export const THEME_PRESETS = [
     variables: {
       "color-primary": "#f97316",
       "color-primary-dark": "#c2410c",
-      "color-primary-light": "#fff0e5"
+      "color-primary-light": "#fff0e5",
+      "color-on-primary": "#ffffff"
     }
   }
 ];

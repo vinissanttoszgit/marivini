@@ -30,8 +30,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--color-primary) 42%, white);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, white);
+  border-color: var(--color-focus-border);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
 textarea {

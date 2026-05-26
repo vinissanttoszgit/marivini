@@ -32,8 +32,8 @@ export async function openSettingsModal(context) {
         <div class="card settings-block">
           <p class="eyebrow">Conta</p>
           <h3>${user?.email ?? "Usuário"}</h3>
-          ${button("Sair da conta", "danger", 'type="button" id="logout-button"')}
         </div>
+        ${button("Sair da conta", "danger", 'type="button" id="logout-button"')}
       </div>
     `
   });

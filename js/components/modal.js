@@ -13,11 +13,11 @@ export class Modal {
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal__handle"></div>
         <div class="modal__header">
-          <div>
+          <div class="modal__title-row">
             <h2 class="modal__title" id="modal-title">${title}</h2>
-            ${description ? `<p class="modal__description">${description}</p>` : ""}
+            <button class="icon-button modal__close-button" data-close-modal aria-label="Fechar modal">✕</button>
           </div>
-          <button class="icon-button" data-close-modal aria-label="Fechar modal">✕</button>
+          ${description ? `<p class="modal__description">${description}</p>` : ""}
         </div>
         <div class="modal__body">${content}</div>
         ${footer ? `<div class="modal__footer">${footer}</div>` : ""}

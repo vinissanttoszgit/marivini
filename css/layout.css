@@ -80,12 +80,23 @@
   display: grid;
   place-items: center;
   background: var(--color-surface);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
 }
 
 #header-add-habit-trigger {
   position: relative;
   padding: 0;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}
+
+#header-add-habit-trigger:hover,
+#header-add-habit-trigger:focus-visible {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  color: var(--color-on-primary);
 }
 
 #header-add-habit-trigger span {
