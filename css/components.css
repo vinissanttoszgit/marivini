@@ -185,6 +185,48 @@
   background: color-mix(in srgb, var(--color-primary) 10%, white);
 }
 
+.icon-plus,
+.icon-minus,
+.icon-dots {
+  position: relative;
+}
+
+.icon-plus::before,
+.icon-plus::after,
+.icon-minus::before,
+.icon-dots::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.icon-plus::before,
+.icon-minus::before {
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.icon-plus::after {
+  width: 2px;
+  height: 14px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.icon-dots::before {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow:
+    -6px 0 0 currentColor,
+    6px 0 0 currentColor;
+}
+
 .subtle-link:active {
   opacity: 0.7;
 }

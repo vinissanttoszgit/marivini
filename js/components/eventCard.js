@@ -24,7 +24,7 @@ export function eventCard(event, { isSelectionMode = false, isSelected = false, 
           <h3 class="event-card__title">${event.title}</h3>
           ${metaItems.length ? `<div class="event-card__meta">${metaItems.join("")}</div>` : ""}
         </div>
-        <button class="icon-button event-card__menu" data-action="edit-event" data-id="${event.id}" aria-label="Editar evento">⋯</button>
+        <button class="icon-button event-card__menu icon-dots" data-action="edit-event" data-id="${event.id}" aria-label="Editar evento"></button>
       </div>
     </article>
   `;

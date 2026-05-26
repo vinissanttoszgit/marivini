@@ -514,9 +514,9 @@ export function createHabitsPage(context) {
           <div class="priority-field">
             <span class="weekday-field__label">Prioridade</span>
             <div class="priority-stepper" aria-label="Prioridade do hábito">
-              <button type="button" class="priority-stepper__button" data-action="decrement-priority" aria-label="Diminuir prioridade">-</button>
+              <button type="button" class="priority-stepper__button icon-minus" data-action="decrement-priority" aria-label="Diminuir prioridade"></button>
               <span class="priority-stepper__value" id="habit-priority-value">${priority}</span>
-              <button type="button" class="priority-stepper__button" data-action="increment-priority" aria-label="Aumentar prioridade">+</button>
+              <button type="button" class="priority-stepper__button icon-plus" data-action="increment-priority" aria-label="Aumentar prioridade"></button>
               <input type="hidden" name="priority" value="${priority}" />
             </div>
           </div>

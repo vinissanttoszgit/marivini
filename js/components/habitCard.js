@@ -19,7 +19,7 @@ export function habitCard({ habit, isCompleted, streakData, isSelectionMode = fa
           </div>
         </div>
         <div class="habit-card__actions">
-          <button class="icon-button habit-card__menu" data-action="edit" data-id="${habit.id}" aria-label="Abrir opções do hábito">⋯</button>
+          <button class="icon-button habit-card__menu icon-dots" data-action="edit" data-id="${habit.id}" aria-label="Abrir opções do hábito"></button>
         </div>
       </div>
     </article>
