@@ -44,6 +44,7 @@ export function createHabitsPage(context) {
   let iconPickerCleanup = null;
   let consumedLongPressHabitId = null;
   let consumedLongPressUntil = 0;
+  let renderedViewUserId = null;
 
   function normalizeActiveDays(activeDays) {
     if (!Array.isArray(activeDays) || !activeDays.length) {
@@ -159,6 +160,12 @@ export function createHabitsPage(context) {
   }
 
   async function render(root) {
+    const activeUserId = context.getViewContext().activeUserId;
+    if (renderedViewUserId !== activeUserId) {
+      clearSelection();
+      renderedViewUserId = activeUserId;
+    }
+
     context.setHeader({
       eyebrow: "",
       title: "Hábitos",
@@ -181,7 +188,7 @@ export function createHabitsPage(context) {
   }
 
   function getSelectionBarMarkup() {
-    if (!state.selectionMode) {
+    if (!state.selectionMode || context.isReadOnly()) {
       return "";
     }
 
@@ -194,13 +201,14 @@ export function createHabitsPage(context) {
   }
 
   function getMarkup() {
+    const canEdit = !context.isReadOnly();
     const visibleHabits = getVisibleHabits();
     const completedIds = getCompletedIds();
     const completed = visibleHabits.filter((habit) => completedIds.has(String(habit.id))).length;
     const selectionSet = getSelectionSet();
 
     return `
-      <div class="page-stack ${state.selectionMode ? "page-stack--selection-mode" : ""}">
+      <div class="page-stack ${state.selectionMode && canEdit ? "page-stack--selection-mode" : ""}">
         <section class="card habit-date-nav" aria-label="Selecionar data">
           <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-date" aria-label="Dia anterior"></button>
           <div class="habit-date-nav__label">${getDateLabel()}</div>
@@ -218,8 +226,9 @@ export function createHabitsPage(context) {
                       state.recentLogs.filter((log) => String(log.habit_id) === String(habit.id)),
                       state.selectedDate
                     ),
-                    isSelectionMode: state.selectionMode,
-                    isSelected: selectionSet.has(String(habit.id))
+                    isSelectionMode: state.selectionMode && canEdit,
+                    isSelected: canEdit && selectionSet.has(String(habit.id)),
+                    canEdit
                   })
                 )
                 .join("")}</section>`
@@ -229,11 +238,13 @@ export function createHabitsPage(context) {
                 description: state.habits.length
                   ? "Escolha outro dia ou adicione um hábito para esta rotina."
                   : "Adicione seu primeiro hábito para começar a acompanhar sua rotina.",
-                action: button(
-                  state.habits.length ? "Adicionar hábito" : "Criar primeiro hábito",
-                  "primary",
-                  'id="empty-create-habit"'
-                )
+                action: canEdit
+                  ? button(
+                      state.habits.length ? "Adicionar hábito" : "Criar primeiro hábito",
+                      "primary",
+                      'id="empty-create-habit"'
+                    )
+                  : ""
               })
         }
       </div>
@@ -294,6 +305,10 @@ export function createHabitsPage(context) {
   }
 
   async function handleToggleHabit(habitId) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     const completedIds = getCompletedIds();
     const normalizedId = String(habitId);
     const willComplete = !completedIds.has(normalizedId);
@@ -471,6 +486,10 @@ export function createHabitsPage(context) {
   }
 
   function openHabitModal(habit = null) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     const selectedIcon = habit?.icon ?? "✨";
     const priority = habit ? getExistingHabitPriority(habit) : getDefaultNewHabitPriority();
 
@@ -578,6 +597,10 @@ export function createHabitsPage(context) {
   }
 
   function openDeleteHabitsModal(ids) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     context.modal.open({
       title: ids.length > 1 ? "Excluir hábitos" : "Excluir hábito",
       description:
@@ -603,6 +626,10 @@ export function createHabitsPage(context) {
   }
 
   function bindSelectionBar(root) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     root.querySelector("#cancel-habit-selection")?.addEventListener("click", () => {
       clearSelection();
       refreshContent(root);
@@ -616,6 +643,10 @@ export function createHabitsPage(context) {
   }
 
   function bindHabitCard(root, element) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     const habitId = String(element.dataset.habitId);
     let pressTimer = null;
     let pointerSession = null;
@@ -740,6 +771,11 @@ export function createHabitsPage(context) {
     root.querySelector("#empty-create-habit")?.addEventListener("click", () => openHabitModal());
     root.querySelector("#prev-habit-date")?.addEventListener("click", async () => changeSelectedDate(-1));
     root.querySelector("#next-habit-date")?.addEventListener("click", async () => changeSelectedDate(1));
+
+    if (context.isReadOnly()) {
+      clearSelection();
+      return;
+    }
 
     bindSelectionBar(root);
 

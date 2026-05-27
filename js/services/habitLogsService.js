@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from "../config/supabase.js";
 import { getCurrentUserId } from "./authService.js";
+import viewContextService from "./viewContextService.js";
 
 function ensureClient() {
   if (!isSupabaseConfigured || !supabase) {
@@ -9,7 +10,7 @@ function ensureClient() {
 
 async function listLogsByDate(date) {
   ensureClient();
-  const userId = await getCurrentUserId();
+  const userId = await viewContextService.getActiveUserId("habits");
   const { data, error } = await supabase
     .from("habit_logs")
     .select("*")
@@ -26,7 +27,7 @@ async function listLogsByDate(date) {
 
 async function listLogsRange({ startDate, endDate }) {
   ensureClient();
-  const userId = await getCurrentUserId();
+  const userId = await viewContextService.getActiveUserId("habits");
   const { data, error } = await supabase
     .from("habit_logs")
     .select("*")
@@ -44,6 +45,7 @@ async function listLogsRange({ startDate, endDate }) {
 
 async function markHabitComplete({ habitId, date }) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("habit_logs")
@@ -68,6 +70,7 @@ async function markHabitComplete({ habitId, date }) {
 
 async function unmarkHabitComplete({ habitId, date }) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
   const userId = await getCurrentUserId();
   const { error } = await supabase
     .from("habit_logs")

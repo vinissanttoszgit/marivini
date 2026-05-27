@@ -149,6 +149,10 @@
   align-items: center;
 }
 
+.event-card.is-read-only .event-card__top {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .event-card__body {
   min-width: 0;
   display: grid;

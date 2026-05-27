@@ -139,6 +139,10 @@
   align-items: center;
 }
 
+.habit-card.is-read-only .habit-card__main-row {
+  grid-template-columns: auto 1fr;
+}
+
 .habit-card__check {
   width: 28px;
   height: 28px;

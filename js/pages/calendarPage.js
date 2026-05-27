@@ -40,6 +40,7 @@ export function createCalendarPage(context) {
   let iconPickerCleanup = null;
   let consumedLongPressEventId = null;
   let consumedLongPressUntil = 0;
+  let renderedViewUserId = null;
 
   function getMonthCacheKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -220,6 +221,13 @@ export function createCalendarPage(context) {
   }
 
   async function render(root) {
+    const activeUserId = context.getViewContext().activeUserId;
+    if (renderedViewUserId !== activeUserId) {
+      monthCache.clear();
+      clearSelection();
+      renderedViewUserId = activeUserId;
+    }
+
     context.setHeader({
       eyebrow: "",
       title: "Calendário",
@@ -241,7 +249,7 @@ export function createCalendarPage(context) {
   }
 
   function getSelectionBarMarkup() {
-    if (!state.selectionMode) {
+    if (!state.selectionMode || context.isReadOnly()) {
       return "";
     }
 
@@ -254,13 +262,14 @@ export function createCalendarPage(context) {
   }
 
   function getMarkup() {
+    const canEdit = !context.isReadOnly();
     const eventsByDate = getEventsByDate();
     const selectedEvents = getSelectedDateEvents();
     const upcomingEvents = getUpcomingEvents();
     const selectionSet = getSelectionSet();
 
     return `
-      <div class="page-stack ${state.selectionMode ? "page-stack--selection-mode" : ""}">
+      <div class="page-stack ${state.selectionMode && canEdit ? "page-stack--selection-mode" : ""}">
         <section class="card calendar-card">
           <div class="calendar-header">
             <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-month" aria-label="Mês anterior"></button>
@@ -275,8 +284,9 @@ export function createCalendarPage(context) {
             ? `<section class="events-list">${selectedEvents
                 .map((event) =>
                   eventCard(event, {
-                    isSelectionMode: state.selectionMode,
-                    isSelected: selectionSet.has(String(event.id))
+                    isSelectionMode: state.selectionMode && canEdit,
+                    isSelected: canEdit && selectionSet.has(String(event.id)),
+                    canEdit
                   })
                 )
                 .join("")}</section>`
@@ -294,9 +304,10 @@ export function createCalendarPage(context) {
                   ${upcomingEvents
                     .map((event) =>
                       eventCard(event, {
-                        isSelectionMode: state.selectionMode,
-                        isSelected: selectionSet.has(String(event.id)),
-                        showDate: true
+                        isSelectionMode: state.selectionMode && canEdit,
+                        isSelected: canEdit && selectionSet.has(String(event.id)),
+                        showDate: true,
+                        canEdit
                       })
                     )
                     .join("")}
@@ -338,6 +349,10 @@ export function createCalendarPage(context) {
   }
 
   function bindSelectionBar(root) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     root.querySelector("#cancel-event-selection")?.addEventListener("click", () => {
       clearSelection();
       refreshContent(root);
@@ -369,6 +384,10 @@ export function createCalendarPage(context) {
 
     root.querySelectorAll("[data-action='edit-event']").forEach((element) => {
       element.addEventListener("click", (event) => {
+        if (context.isReadOnly()) {
+          return;
+        }
+
         event.stopPropagation();
 
         const eventItem = getAllKnownEvents().find(
@@ -381,11 +400,20 @@ export function createCalendarPage(context) {
       });
     });
 
+    if (context.isReadOnly()) {
+      clearSelection();
+      return;
+    }
+
     bindSelectionBar(root);
     root.querySelectorAll("[data-event-id]").forEach((element) => bindEventCard(root, element));
   }
 
   function bindEventCard(root, element) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     const eventId = String(element.dataset.eventId);
     let pressTimer = null;
     let pointerSession = null;
@@ -542,6 +570,10 @@ export function createCalendarPage(context) {
   }
 
   function openEventModal(eventItem = null) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     const selectedIcon = eventItem?.icon ?? "🗓️";
 
     context.modal.open({
@@ -661,6 +693,10 @@ export function createCalendarPage(context) {
   }
 
   function openDeleteEventsModal(ids, root) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     const selectedEvents = getAllKnownEvents().filter((event) => ids.includes(String(event.id)));
     const firstTitle = selectedEvents[0]?.title ?? "este evento";
 

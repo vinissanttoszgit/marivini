@@ -7,7 +7,7 @@ function formatEventDateLabel(isoDate) {
   }).format(new Date(`${isoDate}T12:00:00`));
 }
 
-export function eventCard(event, { isSelectionMode = false, isSelected = false, showDate = false } = {}) {
+export function eventCard(event, { isSelectionMode = false, isSelected = false, showDate = false, canEdit = true } = {}) {
   const icon = event.icon || "🗓️";
   const metaItems = [
     showDate ? `<span class="pill">${formatEventDateLabel(event.event_date)}</span>` : "",
@@ -17,7 +17,7 @@ export function eventCard(event, { isSelectionMode = false, isSelected = false, 
 
   return `
     <article
-      class="card event-card ${isSelectionMode ? "is-selection-mode" : ""} ${isSelected ? "is-selected" : ""}"
+      class="card event-card ${isSelectionMode ? "is-selection-mode" : ""} ${isSelected ? "is-selected" : ""} ${canEdit ? "" : "is-read-only"}"
       data-event-id="${event.id}"
     >
       <div class="event-card__top">
@@ -28,7 +28,7 @@ export function eventCard(event, { isSelectionMode = false, isSelected = false, 
             ${metaItems.length ? `<div class="event-card__meta">${metaItems.join("")}</div>` : ""}
           </div>
         </div>
-        <button class="icon-button event-card__menu icon-dots" data-action="edit-event" data-id="${event.id}" aria-label="Editar evento"></button>
+        ${canEdit ? `<button class="icon-button event-card__menu icon-dots" data-action="edit-event" data-id="${event.id}" aria-label="Editar evento"></button>` : ""}
       </div>
     </article>
   `;

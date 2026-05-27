@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from "../config/supabase.js";
 import { getCurrentUserId } from "./authService.js";
+import viewContextService from "./viewContextService.js";
 
 function ensureClient() {
   if (!isSupabaseConfigured || !supabase) {
@@ -9,9 +10,11 @@ function ensureClient() {
 
 async function listEventsByMonth({ startDate, endDate }) {
   ensureClient();
+  const userId = await viewContextService.getActiveUserId("calendar");
   const { data, error } = await supabase
     .from("events")
     .select("*")
+    .eq("user_id", userId)
     .gte("event_date", startDate)
     .lte("event_date", endDate)
     .order("event_date", { ascending: true })
@@ -26,10 +29,12 @@ async function listEventsByMonth({ startDate, endDate }) {
 
 async function listPendingEvents({ startDate, limit = 20 } = {}) {
   ensureClient();
+  const userId = await viewContextService.getActiveUserId("calendar");
 
   const { data, error } = await supabase
     .from("events")
     .select("*")
+    .eq("user_id", userId)
     .gte("event_date", startDate)
     .order("event_date", { ascending: true })
     .order("event_time", { ascending: true })
@@ -44,9 +49,11 @@ async function listPendingEvents({ startDate, limit = 20 } = {}) {
 
 async function listEventsByDate(date) {
   ensureClient();
+  const userId = await viewContextService.getActiveUserId("calendar");
   const { data, error } = await supabase
     .from("events")
     .select("*")
+    .eq("user_id", userId)
     .eq("event_date", date)
     .order("event_time", { ascending: true });
 
@@ -59,6 +66,7 @@ async function listEventsByDate(date) {
 
 async function createEvent(payload) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("events")
@@ -83,6 +91,7 @@ async function createEvent(payload) {
 
 async function updateEvent(id, payload) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
   const { data, error } = await supabase
     .from("events")
     .update({
@@ -107,6 +116,7 @@ async function updateEvent(id, payload) {
 
 async function deleteEvent(id) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
   const { error } = await supabase.from("events").delete().eq("id", id);
   if (error) {
     throw error;

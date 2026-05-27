@@ -1,4 +1,5 @@
 import authService from "./services/authService.js";
+import viewContextService from "./services/viewContextService.js";
 import { isSupabaseConfigured } from "./config/supabase.js";
 import { initializeTheme } from "./config/theme.js";
 import { createNavbar } from "./components/navbar.js";
@@ -17,11 +18,28 @@ const pageTitle = qs("#page-title");
 const pageSubtitle = qs("#page-subtitle");
 const modal = new Modal();
 const toast = new Toast();
+let currentViewContext = {
+  readOnly: false,
+  activeUserId: null,
+  activeView: null,
+  activeLabel: ""
+};
 
 const context = {
   modal,
   toast,
   root: pageRoot,
+  getViewContext() {
+    return currentViewContext;
+  },
+  isReadOnly() {
+    return Boolean(currentViewContext.readOnly);
+  },
+  async refreshApp() {
+    await refreshViewContext();
+    renderNav();
+    await renderCurrentTab();
+  },
   setHeader({ eyebrow, title, subtitle }) {
     setText("#page-eyebrow", eyebrow);
     setText("#page-title", title);
@@ -57,6 +75,7 @@ async function init() {
   }
 
   bindGlobalActions();
+  await refreshViewContext();
   renderNav();
   await renderCurrentTab();
 
@@ -69,6 +88,10 @@ async function init() {
 
 function bindGlobalActions() {
   qs("#header-add-habit-trigger").addEventListener("click", () => {
+    if (context.isReadOnly()) {
+      return;
+    }
+
     if (activeTab === "habits") {
       pages.habits.openCreateHabitModal();
       return;
@@ -81,6 +104,7 @@ function bindGlobalActions() {
 }
 
 function renderNav() {
+  syncHeaderAddButton();
   navRoot.innerHTML = "";
   navRoot.appendChild(
     createNavbar({
@@ -97,7 +121,21 @@ function renderNav() {
 }
 
 async function renderCurrentTab() {
+  syncHeaderAddButton();
   await pages[activeTab].render(pageRoot);
+}
+
+async function refreshViewContext() {
+  currentViewContext = await viewContextService.getActiveView();
+  syncHeaderAddButton();
+}
+
+function syncHeaderAddButton() {
+  const addButton = qs("#header-add-habit-trigger");
+  const readOnly = context.isReadOnly();
+  addButton.hidden = readOnly;
+  addButton.disabled = readOnly;
+  addButton.setAttribute("aria-hidden", String(readOnly));
 }
 
 function getStoredTab() {

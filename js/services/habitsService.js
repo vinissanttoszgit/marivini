@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from "../config/supabase.js";
 import { getCurrentUserId } from "./authService.js";
+import viewContextService from "./viewContextService.js";
 
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 
@@ -31,7 +32,7 @@ async function listHabits() {
 
 async function listHabitsIncludingInactive({ onlyActive = false } = {}) {
   ensureClient();
-  const userId = await getCurrentUserId();
+  const userId = await viewContextService.getActiveUserId("habits");
 
   let query = supabase
     .from("habits")
@@ -58,6 +59,7 @@ async function listHabitsIncludingInactive({ onlyActive = false } = {}) {
 
 async function createHabit(payload) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
   const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
@@ -86,6 +88,7 @@ async function createHabit(payload) {
 
 async function updateHabit(id, payload) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
 
   const updates = {
     title: payload.title,
@@ -118,6 +121,7 @@ async function updateHabit(id, payload) {
 
 async function deleteHabit(id) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
 
   const { error } = await supabase.from("habits").update({ is_active: false }).eq("id", id);
 
@@ -128,6 +132,7 @@ async function deleteHabit(id) {
 
 async function deleteHabits(ids) {
   ensureClient();
+  await viewContextService.ensureCanEdit();
 
   if (!ids?.length) {
     return;
