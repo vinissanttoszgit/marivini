@@ -511,6 +511,10 @@ export function createHabitsPage(context) {
               ).join("")}
             </div>
           </div>
+          <div class="weekday-field">
+            <span class="weekday-field__label">Frequência</span>
+            ${getModalWeekdayMarkup(habit?.active_days)}
+          </div>
           <div class="priority-field">
             <span class="weekday-field__label">Prioridade</span>
             <div class="priority-stepper" aria-label="Prioridade do hábito">
@@ -519,10 +523,6 @@ export function createHabitsPage(context) {
               <button type="button" class="priority-stepper__button icon-plus" data-action="increment-priority" aria-label="Aumentar prioridade"></button>
               <input type="hidden" name="priority" value="${priority}" />
             </div>
-          </div>
-          <div class="weekday-field">
-            <span class="weekday-field__label">Frequência</span>
-            ${getModalWeekdayMarkup(habit?.active_days)}
           </div>
         </form>
       `,
