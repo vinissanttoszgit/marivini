@@ -209,6 +209,12 @@
   z-index: 30;
 }
 
+.event-datetime-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
 .event-title-group {
   position: relative;
   display: grid;

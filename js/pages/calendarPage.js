@@ -549,14 +549,16 @@ export function createCalendarPage(context) {
       description: "",
       content: `
         <form class="form-stack" id="event-form">
-          <label>
-            Data
-            <input type="date" name="eventDate" value="${eventItem?.event_date ?? state.selectedDate}" required />
-          </label>
-          <label>
-            Horário
-            <input type="time" name="eventTime" value="${eventItem?.event_time ?? ""}" />
-          </label>
+          <div class="event-datetime-row">
+            <label>
+              Data
+              <input type="date" name="eventDate" value="${eventItem?.event_date ?? state.selectedDate}" required />
+            </label>
+            <label>
+              Horário
+              <input type="time" name="eventTime" value="${eventItem?.event_time ?? ""}" />
+            </label>
+          </div>
           <div class="event-title-group">
             <label>
               Título
