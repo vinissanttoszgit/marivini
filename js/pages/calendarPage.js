@@ -16,7 +16,7 @@ const LONG_PRESS_MS = 500;
 const POINTER_CANCEL_DISTANCE = 10;
 const PENDING_EVENTS_LIMIT = 20;
 
-const EVENT_EMOJI_OPTIONS = ["🗓️", "💼", "❤️", "🏠", "🎂", "🩺", "💸", "📞", "✈️", "🛒", "🎯", "🏛️", "🏀", "🏐", "⚽", "🎾"];
+const EVENT_EMOJI_OPTIONS = ["🗓️", "💼", "❤️", "🏠", "🎂", "🩺", "💸", "📞", "✈️", "🛒", "🎯", "🏊", "🏀", "🏐", "⚽", "🎾"];
 
 const REMINDER_OPTIONS = [
   { value: "", label: "Sem lembrete" },
