@@ -15,13 +15,7 @@ function getStoredOwnerId() {
 }
 
 function getProfileLabel(profile) {
-  return (
-    profile?.full_name ||
-    profile?.display_name ||
-    profile?.name ||
-    profile?.email ||
-    null
-  );
+  return profile?.name || null;
 }
 
 function getFallbackLabel(ownerUserId) {
@@ -68,7 +62,7 @@ async function listAvailableViews() {
   const viewerUserId = await getOwnUserId();
   const { data, error } = await supabase
     .from("account_view_permissions")
-    .select("*, owner_profile:profiles!account_view_permissions_owner_user_id_fkey(id, full_name, display_name, name, email)")
+    .select("*, owner_profile:profiles!account_view_permissions_owner_user_id_fkey(id, name)")
     .eq("viewer_user_id", viewerUserId)
     .eq("can_view_habits", true)
     .eq("can_view_calendar", true)

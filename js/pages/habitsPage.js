@@ -94,55 +94,70 @@ export function createHabitsPage(context) {
   }
 
   function getVisibleHabits() {
-    const weekday = getWeekdayIndex(state.selectedDate);
-    const selectedOverridesByOriginal = new Map(
-      state.scheduleOverrides
-        .filter((override) => override.original_date === state.selectedDate)
-        .map((override) => [String(override.habit_id), override])
-    );
-    const selectedOverridesByTarget = new Map(
-      state.scheduleOverrides
-        .filter((override) => override.target_date === state.selectedDate)
-        .map((override) => [String(override.habit_id), override])
-    );
-    const visibleByHabitId = new Map();
-
-    state.habits.forEach((habit) => {
-      const habitId = String(habit.id);
-      const targetOverride = selectedOverridesByTarget.get(habitId);
-
-      if (targetOverride) {
-        visibleByHabitId.set(habitId, {
+    return sortHabits(
+      state.habits
+        .map((habit) => ({
           ...habit,
-          schedule: {
-            isPostponed: true,
-            originalDate: targetOverride.original_date,
-            scheduledDate: state.selectedDate,
-            overrideId: targetOverride.id
-          }
-        });
-        return;
-      }
+          schedule: getVisibleHabitSchedule(habit)
+        }))
+        .filter((habit) => habit.schedule)
+    );
+  }
 
-      const originalOverride = selectedOverridesByOriginal.get(habitId);
-      if (originalOverride && originalOverride.target_date !== state.selectedDate) {
-        return;
-      }
+  function getHabitScheduleForDate(habit, date) {
+    const habitId = String(habit.id);
+    const targetOverride = state.scheduleOverrides.find(
+      (override) => String(override.habit_id) === habitId && override.target_date === date
+    );
 
-      if (normalizeActiveDays(habit.active_days).includes(weekday)) {
-        visibleByHabitId.set(habitId, {
-          ...habit,
-          schedule: {
-            isPostponed: false,
-            originalDate: state.selectedDate,
-            scheduledDate: state.selectedDate,
-            overrideId: null
-          }
-        });
-      }
-    });
+    if (targetOverride) {
+      return {
+        isPostponed: true,
+        originalDate: targetOverride.original_date,
+        scheduledDate: date,
+        overrideId: targetOverride.id
+      };
+    }
 
-    return sortHabits([...visibleByHabitId.values()]);
+    const originalOverride = state.scheduleOverrides.find(
+      (override) => String(override.habit_id) === habitId && override.original_date === date
+    );
+
+    if (originalOverride && originalOverride.target_date !== date) {
+      return null;
+    }
+
+    if (normalizeActiveDays(habit.active_days).includes(getWeekdayIndex(date))) {
+      return {
+        isPostponed: false,
+        originalDate: date,
+        scheduledDate: date,
+        overrideId: null
+      };
+    }
+
+    return null;
+  }
+
+  function hasHabitOccurrenceOnDate(habit, date) {
+    return Boolean(getHabitScheduleForDate(habit, date));
+  }
+
+  function getVisibleHabitSchedule(habit) {
+    return getHabitScheduleForDate(habit, state.selectedDate);
+  }
+
+  function canPostponeHabit(habit, completedIds) {
+    if (context.isReadOnly() || state.selectionMode || completedIds.has(String(habit.id))) {
+      return false;
+    }
+
+    if (!hasHabitOccurrenceOnDate(habit, state.selectedDate)) {
+      return false;
+    }
+
+    const tomorrow = startOfDayISO(addDays(getSelectedDateObject(), 1));
+    return !hasHabitOccurrenceOnDate(habit, tomorrow);
   }
 
   function getCompletedIds() {
@@ -197,16 +212,17 @@ export function createHabitsPage(context) {
   async function loadSelectedDateData() {
     const selectedDateObject = getSelectedDateObject();
     const startDate = startOfDayISO(addDays(selectedDateObject, -60));
-    const endDate = endOfDayISO(selectedDateObject);
+    const logEndDate = endOfDayISO(selectedDateObject);
+    const overrideEndDate = endOfDayISO(addDays(selectedDateObject, 1));
 
     state.selectedLogs = await habitLogsService.listLogsByDate(state.selectedDate);
     state.recentLogs = await habitLogsService.listLogsRange({
       startDate,
-      endDate
+      endDate: logEndDate
     });
     state.scheduleOverrides = await habitScheduleOverridesService.listOverridesRange({
       startDate,
-      endDate
+      endDate: overrideEndDate
     });
   }
 
@@ -288,10 +304,7 @@ export function createHabitsPage(context) {
                     isSelectionMode: state.selectionMode && canEdit,
                     isSelected: canEdit && selectionSet.has(String(habit.id)),
                     canEdit,
-                    canPostpone:
-                      canEdit &&
-                      !state.selectionMode &&
-                      !completedIds.has(String(habit.id))
+                    canPostpone: canPostponeHabit(habit, completedIds)
                   })
                 )
                 .join("")}</section>`
