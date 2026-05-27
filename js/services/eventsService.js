@@ -66,6 +66,7 @@ async function createEvent(payload) {
       user_id: userId,
       title: payload.title,
       description: payload.description || null,
+      icon: payload.icon || "🗓️",
       event_date: payload.eventDate,
       event_time: payload.eventTime || null,
       reminder_minutes: payload.reminderMinutes ? Number(payload.reminderMinutes) : null
@@ -87,6 +88,7 @@ async function updateEvent(id, payload) {
     .update({
       title: payload.title,
       description: payload.description || null,
+      icon: payload.icon || "🗓️",
       event_date: payload.eventDate,
       event_time: payload.eventTime || null,
       reminder_minutes: payload.reminderMinutes ? Number(payload.reminderMinutes) : null,

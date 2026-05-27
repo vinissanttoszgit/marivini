@@ -16,6 +16,8 @@ const LONG_PRESS_MS = 500;
 const POINTER_CANCEL_DISTANCE = 10;
 const PENDING_EVENTS_LIMIT = 20;
 
+const EVENT_EMOJI_OPTIONS = ["🗓️", "💼", "❤️", "🏠", "🎂", "🩺", "💸", "📞", "✈️", "🛒", "🎯", "⭐"];
+
 const REMINDER_OPTIONS = [
   { value: "", label: "Sem lembrete" },
   { value: "5", label: "5 minutos antes" },
@@ -35,6 +37,7 @@ export function createCalendarPage(context) {
   };
 
   const monthCache = new Map();
+  let iconPickerCleanup = null;
   let consumedLongPressEventId = null;
   let consumedLongPressUntil = 0;
 
@@ -486,7 +489,61 @@ export function createCalendarPage(context) {
     });
   }
 
+  function bindIconPicker() {
+    iconPickerCleanup?.();
+
+    const trigger = document.querySelector("#event-icon-trigger");
+    const picker = document.querySelector("#event-icon-picker");
+    const hiddenInput = document.querySelector('#event-form input[name="icon"]');
+    const preview = document.querySelector("#selected-event-icon");
+    const group = document.querySelector(".event-title-group");
+
+    if (!trigger || !picker || !hiddenInput || !preview || !group) {
+      iconPickerCleanup = null;
+      return;
+    }
+
+    const setExpanded = (expanded) => {
+      picker.hidden = !expanded;
+      trigger.setAttribute("aria-expanded", String(expanded));
+    };
+
+    const handleDocumentClick = (event) => {
+      if (!group.contains(event.target)) {
+        setExpanded(false);
+      }
+    };
+
+    trigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setExpanded(picker.hidden);
+    });
+
+    picker.querySelectorAll("[data-icon]").forEach((option) => {
+      option.addEventListener("click", () => {
+        const icon = option.dataset.icon || "🗓️";
+        hiddenInput.value = icon;
+        preview.textContent = icon;
+
+        picker.querySelectorAll(".event-icon-option").forEach((buttonElement) => {
+          buttonElement.classList.toggle("is-selected", buttonElement === option);
+        });
+
+        setExpanded(false);
+      });
+    });
+
+    document.addEventListener("click", handleDocumentClick);
+    iconPickerCleanup = () => {
+      document.removeEventListener("click", handleDocumentClick);
+      iconPickerCleanup = null;
+    };
+  }
+
   function openEventModal(eventItem = null) {
+    const selectedIcon = eventItem?.icon ?? "🗓️";
+
     context.modal.open({
       title: eventItem ? "Editar evento" : "Novo evento",
       description: "",
@@ -500,10 +557,38 @@ export function createCalendarPage(context) {
             Horário
             <input type="time" name="eventTime" value="${eventItem?.event_time ?? ""}" />
           </label>
-          <label>
-            Título
-            <input name="title" maxlength="80" value="${eventItem?.title ?? ""}" placeholder="Ex.: Reunião com cliente" required />
-          </label>
+          <div class="event-title-group">
+            <label>
+              Título
+              <div class="event-title-field">
+                <input name="title" maxlength="80" value="${eventItem?.title ?? ""}" placeholder="Ex.: Reunião com cliente" required />
+                <button
+                  type="button"
+                  class="event-icon-trigger"
+                  id="event-icon-trigger"
+                  aria-label="Escolher ícone"
+                  aria-expanded="false"
+                >
+                  <span id="selected-event-icon">${selectedIcon}</span>
+                </button>
+                <input type="hidden" name="icon" value="${selectedIcon}" />
+              </div>
+            </label>
+            <div class="event-icon-picker" id="event-icon-picker" hidden>
+              ${EVENT_EMOJI_OPTIONS.map(
+                (emoji) => `
+                  <button
+                    type="button"
+                    class="event-icon-option ${selectedIcon === emoji ? "is-selected" : ""}"
+                    data-icon="${emoji}"
+                    aria-label="Selecionar ícone ${emoji}"
+                  >
+                    ${emoji}
+                  </button>
+                `
+              ).join("")}
+            </div>
+          </div>
           <label>
             Lembrete
             <select name="reminderMinutes">
@@ -518,11 +603,14 @@ export function createCalendarPage(context) {
       `
     });
 
+    bindIconPicker();
+
     document.querySelector("#event-form").addEventListener("submit", async (submitEvent) => {
       submitEvent.preventDefault();
       const formData = new FormData(submitEvent.currentTarget);
       const payload = {
         title: String(formData.get("title")).trim(),
+        icon: String(formData.get("icon")).trim() || "🗓️",
         description: null,
         eventDate: String(formData.get("eventDate")).trim(),
         eventTime: String(formData.get("eventTime")).trim(),

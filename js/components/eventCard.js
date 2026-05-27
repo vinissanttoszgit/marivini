@@ -8,6 +8,7 @@ function formatEventDateLabel(isoDate) {
 }
 
 export function eventCard(event, { isSelectionMode = false, isSelected = false, showDate = false } = {}) {
+  const icon = event.icon || "🗓️";
   const metaItems = [
     showDate ? `<span class="pill">📅 ${formatEventDateLabel(event.event_date)}</span>` : "",
     event.event_time ? `<span class="pill">⏰ ${formatTimeLabel(event.event_time)}</span>` : "",
@@ -20,9 +21,12 @@ export function eventCard(event, { isSelectionMode = false, isSelected = false, 
       data-event-id="${event.id}"
     >
       <div class="event-card__top">
-        <div class="event-card__content">
-          <h3 class="event-card__title">${event.title}</h3>
-          ${metaItems.length ? `<div class="event-card__meta">${metaItems.join("")}</div>` : ""}
+        <div class="event-card__body">
+          <div class="event-card__icon">${icon}</div>
+          <div class="event-card__content">
+            <h3 class="event-card__title">${event.title}</h3>
+            ${metaItems.length ? `<div class="event-card__meta">${metaItems.join("")}</div>` : ""}
+          </div>
         </div>
         <button class="icon-button event-card__menu icon-dots" data-action="edit-event" data-id="${event.id}" aria-label="Editar evento"></button>
       </div>
