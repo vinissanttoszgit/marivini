@@ -216,8 +216,7 @@
 .event-datetime-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: var(--space-4);
-  row-gap: var(--space-3);
+  gap: var(--space-3);
 }
 
 .event-datetime-row label {
@@ -232,24 +231,20 @@
 .picker-field input,
 .picker-field select {
   min-height: 48px;
+}
+
+.picker-field--date input,
+.picker-field--time input {
+  padding-right: 14px;
+}
+
+.picker-field--select select {
+  appearance: none;
+  -webkit-appearance: none;
   padding-right: 46px;
 }
 
-.event-datetime-row .picker-field input {
-  padding-left: 12px;
-  padding-right: 36px;
-}
-
-.event-datetime-row .picker-field::after {
-  right: 14px;
-}
-
-.picker-field select {
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-.picker-field::after {
+.picker-field--select::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -262,9 +257,11 @@
   transform: translateY(-70%) rotate(45deg);
 }
 
-.picker-field--date input::-webkit-calendar-picker-indicator,
-.picker-field--time input::-webkit-calendar-picker-indicator {
-  opacity: 0;
+@media (max-width: 520px) {
+  .event-datetime-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
 }
 
 .event-title-group {
