@@ -6,8 +6,26 @@ import viewContextService from "../services/viewContextService.js";
 export async function openSettingsModal(context) {
   const user = await authService.getUser();
   const activeTheme = getSavedThemePreset();
-  const viewContext = await viewContextService.getActiveView();
-  const availableViews = await viewContextService.listAvailableViews();
+  let viewContext;
+  let availableViews = [];
+
+  try {
+    viewContext = await viewContextService.getActiveView();
+  } catch {
+    viewContextService.clearActiveView();
+    viewContext = {
+      activeUserId: user?.id ?? null,
+      activeLabel: user?.email ?? "Minha conta",
+      readOnly: false
+    };
+  }
+
+  try {
+    availableViews = await viewContextService.listAvailableViews();
+  } catch {
+    availableViews = [];
+  }
+
   const inactiveViews = availableViews.filter(
     (view) => String(view.owner_user_id) !== String(viewContext.activeUserId)
   );

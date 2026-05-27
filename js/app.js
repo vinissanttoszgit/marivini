@@ -109,7 +109,13 @@ function renderNav() {
   navRoot.appendChild(
     createNavbar({
       activeTab,
-      onOpenSettings: () => openSettingsModal(context),
+      onOpenSettings: async () => {
+        try {
+          await openSettingsModal(context);
+        } catch (error) {
+          toast.error(error.message || "Não foi possível abrir as configurações.");
+        }
+      },
       onNavigate: async (tab) => {
         activeTab = tab;
         storeTab(tab);
@@ -126,7 +132,21 @@ async function renderCurrentTab() {
 }
 
 async function refreshViewContext() {
-  currentViewContext = await viewContextService.getActiveView();
+  try {
+    currentViewContext = await viewContextService.getActiveView();
+  } catch {
+    viewContextService.clearActiveView();
+    const ownUser = await viewContextService.getOwnUser();
+    currentViewContext = {
+      ownUser,
+      ownUserId: ownUser?.id ?? null,
+      activeUserId: ownUser?.id ?? null,
+      activeView: null,
+      activeLabel: ownUser?.email ?? "Minha conta",
+      readOnly: false
+    };
+  }
+
   syncHeaderAddButton();
 }
 
