@@ -1,5 +1,6 @@
 import habitsService from "../services/habitsService.js";
 import habitLogsService from "../services/habitLogsService.js";
+import habitScheduleOverridesService from "../services/habitScheduleOverridesService.js";
 import { button } from "../components/button.js";
 import { emptyState } from "../components/emptyState.js";
 import { habitCard } from "../components/habitCard.js";
@@ -36,6 +37,7 @@ export function createHabitsPage(context) {
     habits: [],
     selectedLogs: [],
     recentLogs: [],
+    scheduleOverrides: [],
     selectedDate: todayISO(),
     selectedHabitIds: [],
     selectionMode: false
@@ -93,7 +95,54 @@ export function createHabitsPage(context) {
 
   function getVisibleHabits() {
     const weekday = getWeekdayIndex(state.selectedDate);
-    return state.habits.filter((habit) => normalizeActiveDays(habit.active_days).includes(weekday));
+    const selectedOverridesByOriginal = new Map(
+      state.scheduleOverrides
+        .filter((override) => override.original_date === state.selectedDate)
+        .map((override) => [String(override.habit_id), override])
+    );
+    const selectedOverridesByTarget = new Map(
+      state.scheduleOverrides
+        .filter((override) => override.target_date === state.selectedDate)
+        .map((override) => [String(override.habit_id), override])
+    );
+    const visibleByHabitId = new Map();
+
+    state.habits.forEach((habit) => {
+      const habitId = String(habit.id);
+      const targetOverride = selectedOverridesByTarget.get(habitId);
+
+      if (targetOverride) {
+        visibleByHabitId.set(habitId, {
+          ...habit,
+          schedule: {
+            isPostponed: true,
+            originalDate: targetOverride.original_date,
+            scheduledDate: state.selectedDate,
+            overrideId: targetOverride.id
+          }
+        });
+        return;
+      }
+
+      const originalOverride = selectedOverridesByOriginal.get(habitId);
+      if (originalOverride && originalOverride.target_date !== state.selectedDate) {
+        return;
+      }
+
+      if (normalizeActiveDays(habit.active_days).includes(weekday)) {
+        visibleByHabitId.set(habitId, {
+          ...habit,
+          schedule: {
+            isPostponed: false,
+            originalDate: state.selectedDate,
+            scheduledDate: state.selectedDate,
+            overrideId: null
+          }
+        });
+      }
+    });
+
+    return sortHabits([...visibleByHabitId.values()]);
   }
 
   function getCompletedIds() {
@@ -147,11 +196,17 @@ export function createHabitsPage(context) {
 
   async function loadSelectedDateData() {
     const selectedDateObject = getSelectedDateObject();
+    const startDate = startOfDayISO(addDays(selectedDateObject, -60));
+    const endDate = endOfDayISO(selectedDateObject);
 
     state.selectedLogs = await habitLogsService.listLogsByDate(state.selectedDate);
     state.recentLogs = await habitLogsService.listLogsRange({
-      startDate: startOfDayISO(addDays(selectedDateObject, -14)),
-      endDate: endOfDayISO(selectedDateObject)
+      startDate,
+      endDate
+    });
+    state.scheduleOverrides = await habitScheduleOverridesService.listOverridesRange({
+      startDate,
+      endDate
     });
   }
 
@@ -224,11 +279,19 @@ export function createHabitsPage(context) {
                     isCompleted: completedIds.has(String(habit.id)),
                     streakData: calculateHabitStatus(
                       state.recentLogs.filter((log) => String(log.habit_id) === String(habit.id)),
-                      state.selectedDate
+                      state.selectedDate,
+                      {
+                        habit,
+                        overrides: state.scheduleOverrides
+                      }
                     ),
                     isSelectionMode: state.selectionMode && canEdit,
                     isSelected: canEdit && selectionSet.has(String(habit.id)),
-                    canEdit
+                    canEdit,
+                    canPostpone:
+                      canEdit &&
+                      !state.selectionMode &&
+                      !completedIds.has(String(habit.id))
                   })
                 )
                 .join("")}</section>`
@@ -326,6 +389,35 @@ export function createHabitsPage(context) {
       updateLogCollections(habitId, !willComplete);
       refreshContent();
       context.toast.error(error.message || "Não foi possível atualizar o hábito.");
+    }
+  }
+
+  async function handlePostponeHabit(habitId) {
+    if (context.isReadOnly()) {
+      return;
+    }
+
+    const normalizedId = String(habitId);
+    const habit = getVisibleHabits().find((item) => String(item.id) === normalizedId);
+
+    if (!habit || getCompletedIds().has(normalizedId)) {
+      return;
+    }
+
+    const targetDate = startOfDayISO(addDays(getSelectedDateObject(), 1));
+
+    try {
+      await habitScheduleOverridesService.postponeHabitOccurrence({
+        habitId,
+        originalDate: habit.schedule?.originalDate ?? state.selectedDate,
+        targetDate
+      });
+      clearSelection();
+      await loadSelectedDateData();
+      refreshContent();
+      context.toast.success("Hábito adiado para amanhã.");
+    } catch (error) {
+      context.toast.error(error.message || "Não foi possível adiar o hábito.");
     }
   }
 
@@ -669,7 +761,7 @@ export function createHabitsPage(context) {
     };
 
     element.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || event.target.closest("[data-action='edit']")) {
+      if (event.button !== 0 || event.target.closest("[data-action='edit'], [data-action='postpone']")) {
         return;
       }
 
@@ -731,7 +823,7 @@ export function createHabitsPage(context) {
     });
 
     element.addEventListener("click", async (event) => {
-      if (event.target.closest("[data-action='edit']")) {
+      if (event.target.closest("[data-action='edit'], [data-action='postpone']")) {
         return;
       }
 
@@ -778,6 +870,14 @@ export function createHabitsPage(context) {
     }
 
     bindSelectionBar(root);
+
+    root.querySelectorAll("[data-action='postpone']").forEach((element) => {
+      element.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await handlePostponeHabit(element.dataset.id);
+      });
+    });
 
     root.querySelectorAll("[data-action='edit']").forEach((element) => {
       element.addEventListener("click", (event) => {

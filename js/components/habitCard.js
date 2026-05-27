@@ -4,7 +4,8 @@ export function habitCard({
   streakData,
   isSelectionMode = false,
   isSelected = false,
-  canEdit = true
+  canEdit = true,
+  canPostpone = false
 }) {
   return `
     <article
@@ -27,6 +28,11 @@ export function habitCard({
         ${
           canEdit
             ? `<div class="habit-card__actions">
+                ${
+                  canPostpone
+                    ? `<button class="icon-button habit-card__postpone icon-arrow-right" data-action="postpone" data-id="${habit.id}" aria-label="Adiar hábito para amanhã"></button>`
+                    : ""
+                }
                 <button class="icon-button habit-card__menu icon-dots" data-action="edit" data-id="${habit.id}" aria-label="Abrir opções do hábito"></button>
               </div>`
             : ""

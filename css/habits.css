@@ -196,8 +196,14 @@
 }
 
 .habit-card__actions {
-  display: grid;
+  display: flex;
+  gap: 6px;
   align-self: center;
+}
+
+.habit-card__postpone {
+  width: 38px;
+  height: 38px;
 }
 
 .habit-card__menu {

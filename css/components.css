@@ -188,14 +188,16 @@
 
 .icon-plus,
 .icon-minus,
-.icon-dots {
+.icon-dots,
+.icon-arrow-right {
   position: relative;
 }
 
 .icon-plus::before,
 .icon-plus::after,
 .icon-minus::before,
-.icon-dots::before {
+.icon-dots::before,
+.icon-arrow-right::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -226,6 +228,14 @@
   box-shadow:
     -6px 0 0 currentColor,
     6px 0 0 currentColor;
+}
+
+.icon-arrow-right::before {
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: translate(-60%, -50%) rotate(45deg);
 }
 
 .subtle-link:active {
