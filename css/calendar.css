@@ -215,6 +215,40 @@
   gap: var(--space-3);
 }
 
+.picker-field {
+  position: relative;
+  display: block;
+}
+
+.picker-field input,
+.picker-field select {
+  min-height: 48px;
+  padding-right: 46px;
+}
+
+.picker-field select {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.picker-field::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--color-muted);
+  border-bottom: 2px solid var(--color-muted);
+  pointer-events: none;
+  transform: translateY(-70%) rotate(45deg);
+}
+
+.picker-field--date input::-webkit-calendar-picker-indicator,
+.picker-field--time input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+}
+
 .event-title-group {
   position: relative;
   display: grid;

@@ -552,11 +552,15 @@ export function createCalendarPage(context) {
           <div class="event-datetime-row">
             <label>
               Data
-              <input type="date" name="eventDate" value="${eventItem?.event_date ?? state.selectedDate}" required />
+              <span class="picker-field picker-field--date">
+                <input type="date" name="eventDate" value="${eventItem?.event_date ?? state.selectedDate}" required />
+              </span>
             </label>
             <label>
               Horário
-              <input type="time" name="eventTime" value="${eventItem?.event_time ?? ""}" />
+              <span class="picker-field picker-field--time">
+                <input type="time" name="eventTime" value="${eventItem?.event_time ?? ""}" />
+              </span>
             </label>
           </div>
           <div class="event-title-group">
@@ -593,9 +597,11 @@ export function createCalendarPage(context) {
           </div>
           <label>
             Lembrete
-            <select name="reminderMinutes">
-              ${REMINDER_OPTIONS.map((option) => `<option value="${option.value}" ${String(eventItem?.reminder_minutes ?? "") === option.value ? "selected" : ""}>${option.label}</option>`).join("")}
-            </select>
+            <span class="picker-field picker-field--select">
+              <select name="reminderMinutes">
+                ${REMINDER_OPTIONS.map((option) => `<option value="${option.value}" ${String(eventItem?.reminder_minutes ?? "") === option.value ? "selected" : ""}>${option.label}</option>`).join("")}
+              </select>
+            </span>
           </label>
         </form>
       `,
