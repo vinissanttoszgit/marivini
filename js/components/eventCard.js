@@ -10,8 +10,8 @@ function formatEventDateLabel(isoDate) {
 export function eventCard(event, { isSelectionMode = false, isSelected = false, showDate = false } = {}) {
   const icon = event.icon || "🗓️";
   const metaItems = [
-    showDate ? `<span class="pill">📅 ${formatEventDateLabel(event.event_date)}</span>` : "",
-    event.event_time ? `<span class="pill">⏰ ${formatTimeLabel(event.event_time)}</span>` : "",
+    showDate ? `<span class="pill">${formatEventDateLabel(event.event_date)}</span>` : "",
+    event.event_time ? `<span class="pill">${formatTimeLabel(event.event_time)}</span>` : "",
     event.reminder_minutes ? `<span class="pill">🔔 ${formatReminderLabel(event.reminder_minutes)}</span>` : ""
   ].filter(Boolean);
 
