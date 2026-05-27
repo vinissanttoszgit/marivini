@@ -212,7 +212,12 @@
 .event-datetime-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-3);
+  column-gap: var(--space-4);
+  row-gap: var(--space-3);
+}
+
+.event-datetime-row label {
+  min-width: 0;
 }
 
 .picker-field {
@@ -224,6 +229,15 @@
 .picker-field select {
   min-height: 48px;
   padding-right: 46px;
+}
+
+.event-datetime-row .picker-field input {
+  padding-left: 12px;
+  padding-right: 36px;
+}
+
+.event-datetime-row .picker-field::after {
+  right: 14px;
 }
 
 .picker-field select {
