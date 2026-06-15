@@ -1,6 +1,7 @@
 import { button } from "../components/button.js";
 import { applyThemePreset, getSavedThemePreset, THEME_PRESETS } from "../config/theme.js";
 import authService from "../services/authService.js";
+import notificationsService from "../services/notificationsService.js";
 import viewContextService from "../services/viewContextService.js";
 
 export async function openSettingsModal(context) {
@@ -29,6 +30,7 @@ export async function openSettingsModal(context) {
   const inactiveViews = availableViews.filter(
     (view) => String(view.owner_user_id) !== String(viewContext.activeUserId)
   );
+  const notificationsState = getNotificationsState();
 
   context.modal.open({
     title: "Configurações",
@@ -56,6 +58,14 @@ export async function openSettingsModal(context) {
         <div class="card settings-block">
           <p class="eyebrow">Conta</p>
           <h3>${user?.email ?? "Usuário"}</h3>
+        </div>
+        <div class="card settings-block">
+          <p class="eyebrow">Notificações</p>
+          <div class="settings-copy">
+            <h3>Notificações</h3>
+            <p>Ative notificações neste celular para receber lembretes do Marivini.</p>
+          </div>
+          ${renderNotificationsActions(notificationsState)}
         </div>
         <div class="card settings-block settings-view-block">
           <div class="settings-view-block__header">
@@ -106,6 +116,8 @@ export async function openSettingsModal(context) {
     });
   });
 
+  bindNotificationsActions(context);
+
   document.querySelectorAll("[data-view-owner-id]").forEach((element) => {
     element.addEventListener("click", async () => {
       try {
@@ -134,5 +146,80 @@ export async function openSettingsModal(context) {
     } catch (error) {
       context.toast.error(error.message || "Não foi possível sair da conta.");
     }
+  });
+}
+
+function getNotificationsState() {
+  const supported = notificationsService.isSupported();
+  const permission = notificationsService.getPermissionState();
+  const enabled = notificationsService.isEnabled();
+
+  return {
+    enabled,
+    permission,
+    supported
+  };
+}
+
+function renderNotificationsActions({ supported, permission, enabled }) {
+  if (!supported) {
+    return '<p class="settings-feedback">Este navegador não oferece suporte para notificações neste dispositivo.</p>';
+  }
+
+  if (permission === "denied") {
+    return `
+      <p class="settings-feedback settings-feedback--warning">
+        Notificações bloqueadas neste navegador. Libere a permissão nas configurações do dispositivo para ativar.
+      </p>
+    `;
+  }
+
+  if (!enabled) {
+    return button("Ativar notificações neste celular", "primary", 'type="button" id="enable-notifications-button"');
+  }
+
+  return `
+    <p class="settings-feedback settings-feedback--success">Notificações ativas neste celular.</p>
+    ${button("Enviar notificação de teste", "secondary", 'type="button" id="send-test-notification-button"')}
+    ${button("Desativar notificações neste celular", "ghost", 'type="button" id="disable-notifications-button"')}
+  `;
+}
+
+function bindNotificationsActions(context) {
+  document.querySelector("#enable-notifications-button")?.addEventListener("click", async () => {
+    try {
+      const permission = await notificationsService.enableOnThisDevice();
+
+      if (permission === "granted") {
+        context.toast.success("Notificações ativadas neste celular.");
+        context.modal.close();
+        await openSettingsModal(context);
+        return;
+      }
+
+      if (permission === "denied") {
+        context.toast.error("Permissão de notificações bloqueada.");
+        context.modal.close();
+        await openSettingsModal(context);
+      }
+    } catch (error) {
+      context.toast.error(error.message || "Não foi possível ativar as notificações.");
+    }
+  });
+
+  document.querySelector("#send-test-notification-button")?.addEventListener("click", async () => {
+    try {
+      await notificationsService.sendTestNotification();
+      context.toast.success("Notificação de teste enviada.");
+    } catch (error) {
+      context.toast.error(error.message || "Não foi possível enviar a notificação de teste.");
+    }
+  });
+
+  document.querySelector("#disable-notifications-button")?.addEventListener("click", async () => {
+    notificationsService.disableOnThisDevice();
+    context.toast.success("Notificações desativadas neste celular.");
+    context.modal.close();
+    await openSettingsModal(context);
   });
 }

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Marivini</title>
+  <desc id="desc">Ícone do aplicativo Marivini com letras M e V.</desc>
+  <defs>
+    <linearGradient id="bg" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#13b8a4" />
+      <stop offset="1" stop-color="#087f73" />
+    </linearGradient>
+    <linearGradient id="shine" x1="120" y1="104" x2="410" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="124" fill="url(#bg)" />
+  <path d="M96 168c0-22.091 17.909-40 40-40h240c22.091 0 40 17.909 40 40v176c0 22.091-17.909 40-40 40H136c-22.091 0-40-17.909-40-40V168z" fill="#ffffff" fill-opacity="0.12" />
+  <path d="M130 128c30-29 72-44 126-44 70 0 122 30 156 90l-48 25c-24-40-60-60-108-60-40 0-72 11-97 33-24 22-36 51-36 87 0 37 12 67 36 88 25 22 57 33 97 33 47 0 84-20 111-60l45 29c-17 29-40 52-69 67-29 15-58 23-87 23-56 0-101-16-134-47-34-32-51-75-51-131 0-55 20-99 59-133z" fill="url(#shine)" />
+  <path d="M132 368V146h48l76 104 76-104h48v222h-52V228l-60 84h-24l-60-84v140h-52z" fill="#ffffff" />
+  <path d="M217 146h54l54 82 54-82h58L298 344h-24L217 258l-57 86h-57l78-114-75-84h60l51 77 50-77z" fill="#dffaf5" fill-opacity="0.88" />
+</svg>

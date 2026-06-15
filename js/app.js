@@ -8,6 +8,7 @@ import { Toast } from "./components/toast.js";
 import { createHabitsPage } from "./pages/habitsPage.js";
 import { createCalendarPage } from "./pages/calendarPage.js";
 import { openSettingsModal } from "./pages/settingsPage.js";
+import notificationsService from "./services/notificationsService.js";
 import { qs, setText } from "./utils/dom.js";
 
 const ACTIVE_TAB_KEY = "marivini:active-tab";
@@ -63,6 +64,7 @@ init();
 
 async function init() {
   initializeTheme();
+  void registerAppServiceWorker();
 
   if (!isSupabaseConfigured) {
     toast.error("Preencha a URL e a ANON KEY do Supabase antes de usar o app.");
@@ -84,6 +86,14 @@ async function init() {
       window.location.replace("./login.html");
     }
   });
+}
+
+async function registerAppServiceWorker() {
+  try {
+    await notificationsService.registerServiceWorker();
+  } catch {
+    notificationsService.setServiceWorkerRegistration(null);
+  }
 }
 
 function bindGlobalActions() {
