@@ -464,11 +464,18 @@ export function createCalendarPage(context) {
   }
 
   function bind(root) {
-    root.querySelector("#prev-month").addEventListener("click", async () => {
+    const prevMonthButton = root.querySelector("#prev-month");
+    const nextMonthButton = root.querySelector("#next-month");
+
+    if (!prevMonthButton || !nextMonthButton) {
+      return;
+    }
+
+    prevMonthButton.addEventListener("click", async () => {
       await changeMonth(root, -1);
     });
 
-    root.querySelector("#next-month").addEventListener("click", async () => {
+    nextMonthButton.addEventListener("click", async () => {
       await changeMonth(root, 1);
     });
 
