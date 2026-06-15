@@ -40,10 +40,21 @@ export function createCalendarPage(context) {
   let iconPickerCleanup = null;
   let consumedLongPressEventId = null;
   let consumedLongPressUntil = 0;
-  let renderedViewUserId = null;
+  let renderedCalendarCacheKey = null;
 
   function getMonthCacheKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function getCalendarVisibilityCacheKey() {
+    const viewContext = context.getViewContext();
+    const ownUserId = String(viewContext.ownUserId ?? "");
+    const sharedCalendarOwnerIds = (viewContext.activeView?.can_view_calendar ? [viewContext.activeView.owner_user_id] : [])
+      .filter((userId) => String(userId) !== ownUserId)
+      .map((userId) => String(userId))
+      .sort();
+
+    return [ownUserId, ...sharedCalendarOwnerIds].join("|");
   }
 
   function syncSelectedDateWithCurrentMonth() {
@@ -221,11 +232,11 @@ export function createCalendarPage(context) {
   }
 
   async function render(root) {
-    const activeUserId = context.getViewContext().activeUserId;
-    if (renderedViewUserId !== activeUserId) {
+    const calendarCacheKey = getCalendarVisibilityCacheKey();
+    if (renderedCalendarCacheKey !== calendarCacheKey) {
       monthCache.clear();
       clearSelection();
-      renderedViewUserId = activeUserId;
+      renderedCalendarCacheKey = calendarCacheKey;
     }
 
     context.setHeader({

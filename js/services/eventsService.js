@@ -10,11 +10,11 @@ function ensureClient() {
 
 async function listEventsByMonth({ startDate, endDate }) {
   ensureClient();
-  const userId = await viewContextService.getActiveUserId("calendar");
+  const visibleCalendarUserIds = await viewContextService.listVisibleCalendarUserIds();
   const { data, error } = await supabase
     .from("events")
     .select("*")
-    .eq("user_id", userId)
+    .in("user_id", visibleCalendarUserIds)
     .gte("event_date", startDate)
     .lte("event_date", endDate)
     .order("event_date", { ascending: true })
@@ -29,12 +29,12 @@ async function listEventsByMonth({ startDate, endDate }) {
 
 async function listPendingEvents({ startDate, limit = 20 } = {}) {
   ensureClient();
-  const userId = await viewContextService.getActiveUserId("calendar");
+  const visibleCalendarUserIds = await viewContextService.listVisibleCalendarUserIds();
 
   const { data, error } = await supabase
     .from("events")
     .select("*")
-    .eq("user_id", userId)
+    .in("user_id", visibleCalendarUserIds)
     .gte("event_date", startDate)
     .order("event_date", { ascending: true })
     .order("event_time", { ascending: true })
@@ -49,11 +49,11 @@ async function listPendingEvents({ startDate, limit = 20 } = {}) {
 
 async function listEventsByDate(date) {
   ensureClient();
-  const userId = await viewContextService.getActiveUserId("calendar");
+  const visibleCalendarUserIds = await viewContextService.listVisibleCalendarUserIds();
   const { data, error } = await supabase
     .from("events")
     .select("*")
-    .eq("user_id", userId)
+    .in("user_id", visibleCalendarUserIds)
     .eq("event_date", date)
     .order("event_time", { ascending: true });
 

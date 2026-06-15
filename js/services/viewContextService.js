@@ -30,6 +30,22 @@ function normalizePermission(permission) {
   };
 }
 
+function hasScopeAccess(permission, scope) {
+  if (!permission) {
+    return false;
+  }
+
+  if (scope === "habits") {
+    return permission.can_view_habits === true;
+  }
+
+  if (scope === "calendar") {
+    return permission.can_view_calendar === true;
+  }
+
+  return permission.can_view_habits === true || permission.can_view_calendar === true;
+}
+
 async function getOwnUser() {
   return authService.getUser();
 }
@@ -46,8 +62,6 @@ async function fetchPermission(ownerUserId) {
     .select("*")
     .eq("owner_user_id", ownerUserId)
     .eq("viewer_user_id", viewerUserId)
-    .eq("can_view_habits", true)
-    .eq("can_view_calendar", true)
     .maybeSingle();
 
   if (error) {
@@ -64,8 +78,7 @@ async function listAvailableViews() {
     .from("account_view_permissions")
     .select("*, owner_profile:profiles!account_view_permissions_owner_user_id_fkey(id, name)")
     .eq("viewer_user_id", viewerUserId)
-    .eq("can_view_habits", true)
-    .eq("can_view_calendar", true)
+    .or("can_view_habits.eq.true,can_view_calendar.eq.true")
     .order("created_at", { ascending: true });
 
   if (!error) {
@@ -76,8 +89,7 @@ async function listAvailableViews() {
     .from("account_view_permissions")
     .select("*")
     .eq("viewer_user_id", viewerUserId)
-    .eq("can_view_habits", true)
-    .eq("can_view_calendar", true)
+    .or("can_view_habits.eq.true,can_view_calendar.eq.true")
     .order("created_at", { ascending: true });
 
   if (fallback.error) {
@@ -114,7 +126,7 @@ async function getActiveView() {
   }
 
   const permission = await fetchPermission(storedOwnerId);
-  if (!permission) {
+  if (!hasScopeAccess(permission)) {
     clearActiveView();
     return {
       ownUser,
@@ -139,19 +151,31 @@ async function getActiveView() {
 async function getActiveUserId(scope) {
   const activeView = await getActiveView();
 
-  if (activeView.readOnly) {
-    if (scope === "habits" && !activeView.activeView?.can_view_habits) {
-      clearActiveView();
-      return activeView.ownUserId;
-    }
-
-    if (scope === "calendar" && !activeView.activeView?.can_view_calendar) {
-      clearActiveView();
-      return activeView.ownUserId;
-    }
+  if (!activeView.readOnly) {
+    return activeView.activeUserId;
   }
 
-  return activeView.activeUserId;
+  return hasScopeAccess(activeView.activeView, scope) ? activeView.activeUserId : activeView.ownUserId;
+}
+
+async function listVisibleCalendarUserIds() {
+  ensureClient();
+  const ownUserId = await getOwnUserId();
+  if (!ownUserId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("account_view_permissions")
+    .select("owner_user_id")
+    .eq("viewer_user_id", ownUserId)
+    .eq("can_view_calendar", true);
+
+  if (error) {
+    throw error;
+  }
+
+  return [...new Set([ownUserId, ...(data ?? []).map((permission) => permission.owner_user_id).filter(Boolean)])];
 }
 
 async function setActiveView(ownerUserId) {
@@ -188,6 +212,7 @@ export default {
   getOwnUserId,
   getActiveView,
   getActiveUserId,
+  listVisibleCalendarUserIds,
   listAvailableViews,
   setActiveView,
   clearActiveView,
