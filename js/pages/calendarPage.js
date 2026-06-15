@@ -226,13 +226,13 @@ export function createCalendarPage(context) {
 
   async function refreshCalendarData(root, { preferCache = true, reloadPending = true } = {}) {
     await loadMonth({ preferCache });
+    refreshContent(root);
+    preloadAdjacentMonths();
 
     if (reloadPending) {
       await loadPendingEvents();
+      refreshContent(root);
     }
-
-    refreshContent(root);
-    preloadAdjacentMonths();
   }
 
   async function changeMonth(root, amount) {
@@ -244,7 +244,7 @@ export function createCalendarPage(context) {
     syncSelectedDateWithCurrentMonth();
 
     try {
-      await refreshCalendarData(root, { preferCache: true, reloadPending: true });
+      await refreshCalendarData(root, { preferCache: true, reloadPending: false });
     } catch (error) {
       state.currentMonth = previousMonth;
       state.selectedDate = previousSelectedDate;
