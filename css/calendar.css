@@ -15,6 +15,18 @@
   color: var(--color-text);
 }
 
+.calendar-header__label-button {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
 .calendar-header .habit-date-nav__arrow {
   position: relative;
 }

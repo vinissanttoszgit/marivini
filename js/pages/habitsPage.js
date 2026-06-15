@@ -474,7 +474,7 @@ export function createHabitsPage(context) {
       <div class="page-stack ${state.selectionMode && canEdit ? "page-stack--selection-mode" : ""}">
         <section class="card habit-date-nav" aria-label="Selecionar data">
           <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-date" aria-label="Dia anterior"></button>
-          <div class="habit-date-nav__label">${getDateLabel()}</div>
+          <button class="habit-date-nav__label habit-date-nav__label-button" id="reset-habit-date" type="button" aria-label="Voltar para hoje">${getDateLabel()}</button>
           <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-habit-date" aria-label="Próximo dia"></button>
         </section>
         ${progressCard({ completed, total: visibleHabits.length })}
@@ -632,6 +632,25 @@ export function createHabitsPage(context) {
 
     if (hasCachedData) {
       delete state.dateErrorsByDate[nextDate];
+    }
+  }
+
+  async function resetSelectedDate() {
+    const currentDate = todayISO();
+
+    if (state.selectedDate === currentDate) {
+      return;
+    }
+
+    const hasCachedData = Boolean(getDateData(currentDate));
+    state.selectedDate = currentDate;
+    clearSelection();
+    ensureDateData(currentDate).catch(() => {});
+    preloadDateWindow(currentDate);
+    refreshContent();
+
+    if (hasCachedData) {
+      delete state.dateErrorsByDate[currentDate];
     }
   }
 
@@ -1064,6 +1083,7 @@ export function createHabitsPage(context) {
     root.querySelector("#empty-create-habit")?.addEventListener("click", () => openHabitModal());
     root.querySelector("#prev-habit-date")?.addEventListener("click", async () => changeSelectedDate(-1));
     root.querySelector("#next-habit-date")?.addEventListener("click", async () => changeSelectedDate(1));
+    root.querySelector("#reset-habit-date")?.addEventListener("click", async () => resetSelectedDate());
 
     if (context.isReadOnly()) {
       clearSelection();

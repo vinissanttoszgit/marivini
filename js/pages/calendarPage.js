@@ -252,6 +252,24 @@ export function createCalendarPage(context) {
     }
   }
 
+  async function resetCurrentMonth(root) {
+    const currentMonth = new Date();
+
+    if (getMonthCacheKey(state.currentMonth) === getMonthCacheKey(currentMonth)) {
+      return;
+    }
+
+    clearSelection();
+    state.currentMonth = currentMonth;
+    state.selectedDate = todayISO();
+
+    try {
+      await refreshCalendarData(root, { preferCache: true, reloadPending: false });
+    } catch (error) {
+      context.toast.error(error.message || "NÃ£o foi possÃ­vel voltar para o mÃªs atual.");
+    }
+  }
+
   async function render(root) {
     const calendarCacheKey = getCalendarVisibilityCacheKey();
     if (renderedCalendarCacheKey !== calendarCacheKey) {
@@ -305,7 +323,7 @@ export function createCalendarPage(context) {
         <section class="card calendar-card">
           <div class="calendar-header">
             <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-month" aria-label="Mês anterior"></button>
-            <div class="calendar-header__label">${formatMonthYear(state.currentMonth)}</div>
+            <button class="calendar-header__label calendar-header__label-button" id="reset-calendar-month" type="button" aria-label="Voltar para o mês atual">${formatMonthYear(state.currentMonth)}</button>
             <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-month" aria-label="Próximo mês"></button>
           </div>
           ${calendarGrid({ currentDate: state.currentMonth, selectedDate: state.selectedDate, eventsByDate })}
@@ -404,6 +422,10 @@ export function createCalendarPage(context) {
 
     root.querySelector("#next-month").addEventListener("click", async () => {
       await changeMonth(root, 1);
+    });
+
+    root.querySelector("#reset-calendar-month")?.addEventListener("click", async () => {
+      await resetCurrentMonth(root);
     });
 
     root.querySelectorAll("[data-date]").forEach((buttonElement) => {
