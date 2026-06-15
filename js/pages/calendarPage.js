@@ -4,7 +4,10 @@ import { calendarGrid } from "../components/calendarGrid.js";
 import { emptyState } from "../components/emptyState.js";
 import { eventCard } from "../components/eventCard.js";
 import { loadingState } from "../components/loadingState.js";
+import { modalFooterActions } from "../components/modalFooterActions.js";
+import { sectionDivider } from "../components/sectionDivider.js";
 import { selectionActionBar } from "../components/selectionActionBar.js";
+import { titleIconPicker } from "../components/titleIconPicker.js";
 import {
   formatLongDate,
   formatTimeLabel,
@@ -407,9 +410,7 @@ export function createCalendarPage(context) {
                 .map(
                   (group) => `
                     <section class="events-upcoming">
-                      <div class="events-section-divider">
-                        <span>${group.title}</span>
-                      </div>
+                      ${sectionDivider({ label: group.title })}
                       <div class="events-list">
                         ${group.events
                           .map((event) =>
@@ -438,9 +439,7 @@ export function createCalendarPage(context) {
   function getUpcomingEventsLoadingMarkup() {
     return `
       <section class="loading-state__calendar-section" aria-label="Carregando proximos eventos">
-        <div class="events-section-divider loading-state__calendar-divider">
-          <span>Próximos eventos</span>
-        </div>
+        ${sectionDivider({ label: "Próximos eventos", className: "events-section-divider loading-state__calendar-divider" })}
         <div class="events-list">
           ${Array.from(
             { length: 2 },
@@ -1031,38 +1030,18 @@ export function createCalendarPage(context) {
               </div>
             </label>
           </div>
-          <div class="event-title-group">
-            <label>
-              Título
-              <div class="event-title-field">
-                <input name="title" maxlength="80" value="${eventItem?.title ?? ""}" placeholder="Ex.: Reunião com cliente" required />
-                <button
-                  type="button"
-                  class="event-icon-trigger"
-                  id="event-icon-trigger"
-                  aria-label="Escolher ícone"
-                  aria-expanded="false"
-                >
-                  <span id="selected-event-icon">${selectedIcon}</span>
-                </button>
-                <input type="hidden" name="icon" value="${selectedIcon}" />
-              </div>
-            </label>
-            <div class="event-icon-picker" id="event-icon-picker" hidden>
-              ${EVENT_EMOJI_OPTIONS.map(
-                (emoji) => `
-                  <button
-                    type="button"
-                    class="event-icon-option ${selectedIcon === emoji ? "is-selected" : ""}"
-                    data-icon="${emoji}"
-                    aria-label="Selecionar ícone ${emoji}"
-                  >
-                    ${emoji}
-                  </button>
-                `
-              ).join("")}
-            </div>
-          </div>
+          ${titleIconPicker({
+            prefix: "event",
+            label: "Título",
+            titleName: "title",
+            titleValue: eventItem?.title ?? "",
+            titlePlaceholder: "Ex.: Reunião com cliente",
+            titleMaxLength: 80,
+            titleRequired: true,
+            selectedIcon,
+            iconOptions: EVENT_EMOJI_OPTIONS,
+            defaultIcon: "🗓️"
+          })}
           <label>
             Lembrete
             <span class="picker-field picker-field--select">
@@ -1073,10 +1052,11 @@ export function createCalendarPage(context) {
           </label>
         </form>
       `,
-      footer: `
-        ${button("Cancelar", "ghost", 'type="button" data-close-modal')}
-        ${button(eventItem ? "Salvar alterações" : "Salvar evento", "primary", 'type="submit" form="event-form"')}
-      `
+      footer: modalFooterActions({
+        actionLabel: eventItem ? "Salvar alterações" : "Salvar evento",
+        actionVariant: "primary",
+        actionAttributes: 'type="submit" form="event-form"'
+      })
     });
 
     bindIconPicker();
@@ -1144,10 +1124,11 @@ export function createCalendarPage(context) {
           ? `Deseja remover ${ids.length} eventos do calendário?`
           : `Deseja remover "${firstTitle}" do calendário?`,
       content: "<p>Os eventos selecionados serão apagados definitivamente.</p>",
-      footer: `
-        ${button("Cancelar", "ghost", 'type="button" data-close-modal')}
-        ${button("Excluir", "danger", 'type="button" id="confirm-delete-events"')}
-      `
+      footer: modalFooterActions({
+        actionLabel: "Excluir",
+        actionVariant: "danger",
+        actionAttributes: 'type="button" id="confirm-delete-events"'
+      })
     });
 
     document.querySelector("#confirm-delete-events").addEventListener("click", async () => {

@@ -4,9 +4,11 @@ import habitScheduleOverridesService from "../services/habitScheduleOverridesSer
 import { button } from "../components/button.js";
 import { emptyState } from "../components/emptyState.js";
 import { habitCard } from "../components/habitCard.js";
+import { modalFooterActions } from "../components/modalFooterActions.js";
 import { periodNavigator } from "../components/periodNavigator.js";
 import { progressCard } from "../components/progressCard.js";
 import { selectionActionBar } from "../components/selectionActionBar.js";
+import { titleIconPicker } from "../components/titleIconPicker.js";
 import { loadingState } from "../components/loadingState.js";
 import notificationsService from "../services/notificationsService.js";
 import {
@@ -1131,38 +1133,18 @@ export function createHabitsPage(context) {
       description: "",
       content: `
         <form class="form-stack" id="habit-form">
-          <div class="habit-title-group">
-            <label>
-              Título
-              <div class="habit-title-field">
-                <input name="title" maxlength="80" value="${habit?.title ?? ""}" placeholder="Ex.: Ler 20 minutos" required />
-                <button
-                  type="button"
-                  class="habit-icon-trigger"
-                  id="habit-icon-trigger"
-                  aria-label="Escolher ícone"
-                  aria-expanded="false"
-                >
-                  <span id="selected-habit-icon">${selectedIcon}</span>
-                </button>
-                <input type="hidden" name="icon" value="${selectedIcon}" />
-              </div>
-            </label>
-            <div class="habit-icon-picker" id="habit-icon-picker" hidden>
-              ${EMOJI_OPTIONS.map(
-                (emoji) => `
-                  <button
-                    type="button"
-                    class="habit-icon-option ${selectedIcon === emoji ? "is-selected" : ""}"
-                    data-icon="${emoji}"
-                    aria-label="Selecionar ícone ${emoji}"
-                  >
-                    ${emoji}
-                  </button>
-                `
-              ).join("")}
-            </div>
-          </div>
+          ${titleIconPicker({
+            prefix: "habit",
+            label: "Título",
+            titleName: "title",
+            titleValue: habit?.title ?? "",
+            titlePlaceholder: "Ex.: Ler 20 minutos",
+            titleMaxLength: 80,
+            titleRequired: true,
+            selectedIcon,
+            iconOptions: EMOJI_OPTIONS,
+            defaultIcon: "✨"
+          })}
           <div class="weekday-field">
             <span class="weekday-field__label">Frequência</span>
             ${getModalWeekdayMarkup(habit?.active_days)}
@@ -1178,10 +1160,11 @@ export function createHabitsPage(context) {
           </div>
         </form>
       `,
-      footer: `
-        ${button("Cancelar", "ghost", 'type="button" data-close-modal')}
-        ${button(habit ? "Salvar alterações" : "Salvar hábito", "primary", 'type="submit" form="habit-form"')}
-      `
+      footer: modalFooterActions({
+        actionLabel: habit ? "Salvar alterações" : "Salvar hábito",
+        actionVariant: "primary",
+        actionAttributes: 'type="submit" form="habit-form"'
+      })
     });
 
     bindIconPicker();
@@ -1242,10 +1225,11 @@ export function createHabitsPage(context) {
           ? `Deseja remover ${ids.length} hábitos da sua rotina?`
           : "Deseja remover este hábito da sua rotina?",
       content: "<p>Os hábitos serão desativados e deixarão de aparecer na lista.</p>",
-      footer: `
-        ${button("Cancelar", "ghost", 'type="button" data-close-modal')}
-        ${button("Excluir", "danger", 'type="button" id="confirm-delete-habits"')}
-      `
+      footer: modalFooterActions({
+        actionLabel: "Excluir",
+        actionVariant: "danger",
+        actionAttributes: 'type="button" id="confirm-delete-habits"'
+      })
     });
 
     document.querySelector("#confirm-delete-habits").addEventListener("click", async () => {
