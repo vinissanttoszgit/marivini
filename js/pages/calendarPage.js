@@ -886,8 +886,8 @@ export function createCalendarPage(context) {
 
     const setTimeValue = ({ hour, minute } = {}) => {
       const [currentHour = "", currentMinute = ""] = String(timeInput.value || "").split(":");
-      const nextHour = hour ?? currentHour || getHourOptions()[0];
-      const nextMinute = minute ?? currentMinute || getMinuteOptions()[0];
+      const nextHour = (hour ?? currentHour) || getHourOptions()[0];
+      const nextMinute = (minute ?? currentMinute) || getMinuteOptions()[0];
 
       timeInput.value = `${nextHour}:${nextMinute}`;
       timeValue.textContent = getEventTimeLabel(timeInput.value);
