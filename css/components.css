@@ -303,6 +303,12 @@
   padding: 0;
 }
 
+.loading-state--weekly-summary {
+  width: 100%;
+  gap: var(--space-3);
+  padding: 0;
+}
+
 .loading-state__header {
   display: flex;
   align-items: center;
@@ -507,11 +513,13 @@
 
 .loading-state__weekly-summary-card {
   padding: 18px;
+  width: 100%;
 }
 
 .loading-state__weekly-summary-chart {
   display: grid;
   gap: 14px;
+  width: 100%;
 }
 
 .loading-state__weekly-summary-row {
@@ -519,11 +527,13 @@
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
+  width: 100%;
 }
 
 .loading-state__weekly-summary-bar-group {
   display: grid;
   gap: 8px;
+  width: 100%;
 }
 
 .loading-state__weekly-summary-meta {
@@ -540,6 +550,11 @@
 .loading-state__line--weekly-meta {
   width: 42px;
   height: 12px;
+}
+
+.loading-state__line--weekly-progress {
+  width: 100%;
+  height: 10px;
 }
 
 .loading-state__calendar-divider span {

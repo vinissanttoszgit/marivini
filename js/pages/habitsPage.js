@@ -742,7 +742,6 @@ export function createHabitsPage(context) {
           total: summary.total
         })}
         <section class="card weekly-summary-card">
-          <p class="eyebrow">Total geral</p>
           <div class="weekly-summary-chart" aria-label="Desempenho da semana">
             ${summary.days
               .map(

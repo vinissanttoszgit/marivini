@@ -151,7 +151,7 @@ function weeklySummaryRowLoadingState() {
           <div class="loading-state__line loading-state__line--weekly-meta"></div>
           <div class="loading-state__line loading-state__line--weekly-meta"></div>
         </div>
-        <div class="loading-state__line loading-state__line--progress"></div>
+        <div class="loading-state__line loading-state__line--weekly-progress"></div>
       </div>
     </div>
   `;
