@@ -5,8 +5,12 @@ import { emptyState } from "../components/emptyState.js";
 import { eventCard } from "../components/eventCard.js";
 import { loadingState } from "../components/loadingState.js";
 import {
+  formatLongDate,
+  formatTimeLabel,
   formatMonthYear,
   getCalendarMonthBounds,
+  getMonthMatrix,
+  isSameDate,
   shiftMonth,
   todayISO
 } from "../utils/dates.js";
@@ -16,6 +20,7 @@ const LONG_PRESS_MS = 500;
 const POINTER_CANCEL_DISTANCE = 10;
 const PENDING_EVENTS_LIMIT = 20;
 const CALENDAR_PRELOAD_RADIUS = 2;
+const TIME_SLOT_STEP_MINUTES = 15;
 
 const EVENT_EMOJI_OPTIONS = ["🗓️", "💼", "❤️", "🏠", "🎂", "🩺", "💸", "📞", "✈️", "🛒", "🎯", "🏊", "🏀", "🏐", "⚽", "🎾"];
 
@@ -42,6 +47,7 @@ export function createCalendarPage(context) {
   const monthCache = new Map();
   const pendingMonthRequests = new Map();
   let iconPickerCleanup = null;
+  let eventDateTimePickerCleanup = null;
   let consumedLongPressEventId = null;
   let consumedLongPressUntil = 0;
   let renderedCalendarCacheKey = null;
@@ -678,6 +684,214 @@ export function createCalendarPage(context) {
     };
   }
 
+  function getEventDateLabel(value) {
+    if (!value) {
+      return "Selecionar data";
+    }
+
+    return formatLongDate(value);
+  }
+
+  function getEventTimeLabel(value) {
+    if (!value) {
+      return "Sem horario";
+    }
+
+    return formatTimeLabel(value);
+  }
+
+  function getTimeSlotOptions() {
+    return Array.from({ length: (24 * 60) / TIME_SLOT_STEP_MINUTES }, (_, index) => {
+      const totalMinutes = index * TIME_SLOT_STEP_MINUTES;
+      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+      const minutes = String(totalMinutes % 60).padStart(2, "0");
+      return `${hours}:${minutes}`;
+    });
+  }
+
+  function getDatePickerMarkup(selectedDate) {
+    const currentDate = selectedDate ? new Date(`${selectedDate}T12:00:00`) : new Date(`${state.selectedDate}T12:00:00`);
+    const matrix = getMonthMatrix(currentDate);
+
+    return `
+      <div class="event-date-picker" id="event-date-picker" hidden>
+        <div class="event-date-picker__header">
+          <button type="button" class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="event-date-picker-prev" aria-label="Mes anterior"></button>
+          <div class="event-date-picker__month">${formatMonthYear(currentDate)}</div>
+          <button type="button" class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="event-date-picker-next" aria-label="Proximo mes"></button>
+        </div>
+        <div class="event-date-picker__grid">
+          ${["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"].map((weekday) => `<div class="event-date-picker__weekday">${weekday}</div>`).join("")}
+          ${matrix
+            .map(({ isoDate, dayNumber, isCurrentMonth }) => {
+              const isSelected = isSameDate(isoDate, selectedDate);
+              const isToday = isSameDate(isoDate, todayISO());
+              return `
+                <button
+                  type="button"
+                  class="event-date-picker__day ${!isCurrentMonth ? "is-outside" : ""} ${isSelected ? "is-selected" : ""} ${isToday ? "is-today" : ""}"
+                  data-picker-date="${isoDate}"
+                >
+                  ${dayNumber}
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function getTimePickerMarkup(selectedTime) {
+    const normalizedTime = selectedTime ? String(selectedTime).slice(0, 5) : "";
+
+    return `
+      <div class="event-time-picker" id="event-time-picker" hidden>
+        <button type="button" class="event-time-picker__option ${!normalizedTime ? "is-selected" : ""}" data-picker-time="">
+          Sem horario
+        </button>
+        ${getTimeSlotOptions()
+          .map(
+            (time) => `
+              <button
+                type="button"
+                class="event-time-picker__option ${normalizedTime === time ? "is-selected" : ""}"
+                data-picker-time="${time}"
+              >
+                ${time}
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  function bindEventDateTimePickers() {
+    eventDateTimePickerCleanup?.();
+
+    const dateField = document.querySelector("#event-date-picker-trigger");
+    const timeField = document.querySelector("#event-time-picker-trigger");
+    const datePicker = document.querySelector("#event-date-picker");
+    const timePicker = document.querySelector("#event-time-picker");
+    const dateValue = document.querySelector("#event-date-picker-value");
+    const timeValue = document.querySelector("#event-time-picker-value");
+    const dateInput = document.querySelector('#event-form input[name="eventDate"]');
+    const timeInput = document.querySelector('#event-form input[name="eventTime"]');
+    const monthLabel = document.querySelector(".event-date-picker__month");
+    const dateGrid = document.querySelector(".event-date-picker__grid");
+
+    if (!dateField || !timeField || !datePicker || !timePicker || !dateValue || !timeValue || !dateInput || !timeInput || !monthLabel || !dateGrid) {
+      eventDateTimePickerCleanup = null;
+      return;
+    }
+
+    let pickerMonth = new Date(`${dateInput.value || state.selectedDate}T12:00:00`);
+
+    const setExpanded = (element, expanded) => {
+      element.setAttribute("aria-expanded", String(expanded));
+    };
+
+    const closePickers = () => {
+      datePicker.hidden = true;
+      timePicker.hidden = true;
+      setExpanded(dateField, false);
+      setExpanded(timeField, false);
+    };
+
+    const syncTimePicker = () => {
+      timePicker.querySelectorAll("[data-picker-time]").forEach((buttonElement) => {
+        buttonElement.classList.toggle("is-selected", buttonElement.dataset.pickerTime === (timeInput.value || ""));
+      });
+    };
+
+    const syncDatePicker = () => {
+      monthLabel.textContent = formatMonthYear(pickerMonth);
+      const matrix = getMonthMatrix(pickerMonth);
+
+      dateGrid.innerHTML = `
+        ${["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"].map((weekday) => `<div class="event-date-picker__weekday">${weekday}</div>`).join("")}
+        ${matrix
+          .map(({ isoDate, dayNumber, isCurrentMonth }) => {
+            const isSelected = isSameDate(isoDate, dateInput.value);
+            const isToday = isSameDate(isoDate, todayISO());
+            return `
+              <button
+                type="button"
+                class="event-date-picker__day ${!isCurrentMonth ? "is-outside" : ""} ${isSelected ? "is-selected" : ""} ${isToday ? "is-today" : ""}"
+                data-picker-date="${isoDate}"
+              >
+                ${dayNumber}
+              </button>
+            `;
+          })
+          .join("")}
+      `;
+
+      dateGrid.querySelectorAll("[data-picker-date]").forEach((buttonElement) => {
+        buttonElement.addEventListener("click", () => {
+          dateInput.value = buttonElement.dataset.pickerDate;
+          dateValue.textContent = getEventDateLabel(buttonElement.dataset.pickerDate);
+          syncDatePicker();
+          closePickers();
+        });
+      });
+    };
+
+    const handleDocumentClick = (event) => {
+      const target = event.target;
+      if (!dateField.contains(target) && !timeField.contains(target) && !datePicker.contains(target) && !timePicker.contains(target)) {
+        closePickers();
+      }
+    };
+
+    dateField.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const willOpen = datePicker.hidden;
+      closePickers();
+      datePicker.hidden = !willOpen;
+      setExpanded(dateField, willOpen);
+    });
+
+    timeField.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const willOpen = timePicker.hidden;
+      closePickers();
+      timePicker.hidden = !willOpen;
+      setExpanded(timeField, willOpen);
+    });
+
+    document.querySelector("#event-date-picker-prev")?.addEventListener("click", () => {
+      pickerMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1);
+      syncDatePicker();
+    });
+
+    document.querySelector("#event-date-picker-next")?.addEventListener("click", () => {
+      pickerMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1);
+      syncDatePicker();
+    });
+
+    timePicker.querySelectorAll("[data-picker-time]").forEach((buttonElement) => {
+      buttonElement.addEventListener("click", () => {
+        timeInput.value = buttonElement.dataset.pickerTime || "";
+        timeValue.textContent = getEventTimeLabel(timeInput.value);
+        syncTimePicker();
+        closePickers();
+      });
+    });
+
+    syncDatePicker();
+    syncTimePicker();
+
+    document.addEventListener("click", handleDocumentClick);
+    eventDateTimePickerCleanup = () => {
+      document.removeEventListener("click", handleDocumentClick);
+      eventDateTimePickerCleanup = null;
+    };
+  }
+
   function openEventModal(eventItem = null) {
     if (context.isReadOnly()) {
       return;
@@ -693,15 +907,23 @@ export function createCalendarPage(context) {
           <div class="event-datetime-row">
             <label>
               Data
-              <span class="picker-field picker-field--date">
-                <input type="date" name="eventDate" value="${eventItem?.event_date ?? state.selectedDate}" required />
-              </span>
+              <div class="picker-field picker-field--custom">
+                <button type="button" class="picker-field__trigger" id="event-date-picker-trigger" aria-expanded="false">
+                  <span id="event-date-picker-value">${getEventDateLabel(eventItem?.event_date ?? state.selectedDate)}</span>
+                </button>
+                <input type="hidden" name="eventDate" value="${eventItem?.event_date ?? state.selectedDate}" required />
+                ${getDatePickerMarkup(eventItem?.event_date ?? state.selectedDate)}
+              </div>
             </label>
             <label>
               Horário
-              <span class="picker-field picker-field--time">
-                <input type="time" name="eventTime" value="${eventItem?.event_time ?? ""}" />
-              </span>
+              <div class="picker-field picker-field--custom">
+                <button type="button" class="picker-field__trigger" id="event-time-picker-trigger" aria-expanded="false">
+                  <span id="event-time-picker-value">${getEventTimeLabel(String(eventItem?.event_time ?? "").slice(0, 5))}</span>
+                </button>
+                <input type="hidden" name="eventTime" value="${String(eventItem?.event_time ?? "").slice(0, 5)}" />
+                ${getTimePickerMarkup(String(eventItem?.event_time ?? "").slice(0, 5))}
+              </div>
             </label>
           </div>
           <div class="event-title-group">
@@ -753,6 +975,7 @@ export function createCalendarPage(context) {
     });
 
     bindIconPicker();
+    bindEventDateTimePickers();
 
     document.querySelector("#event-form").addEventListener("submit", async (submitEvent) => {
       submitEvent.preventDefault();
