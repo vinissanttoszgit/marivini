@@ -31,6 +31,8 @@ export function createCalendarPage(context) {
   const state = {
     currentMonth: new Date(),
     selectedDate: todayISO(),
+    isMonthLoading: false,
+    isPendingLoading: false,
     monthlyEvents: [],
     pendingEvents: [],
     selectedEventIds: [],
@@ -225,12 +227,18 @@ export function createCalendarPage(context) {
   }
 
   async function refreshCalendarData(root, { preferCache = true, reloadPending = true } = {}) {
+    state.isMonthLoading = true;
+    state.isPendingLoading = reloadPending;
+    refreshContent(root);
+
     await loadMonth({ preferCache });
+    state.isMonthLoading = false;
     refreshContent(root);
     preloadAdjacentMonths();
 
     if (reloadPending) {
       await loadPendingEvents();
+      state.isPendingLoading = false;
       refreshContent(root);
     }
   }
@@ -285,6 +293,8 @@ export function createCalendarPage(context) {
     });
 
     root.innerHTML = loadingState({ variant: "calendar" });
+    state.isMonthLoading = true;
+    state.isPendingLoading = true;
 
     try {
       await refreshCalendarData(root, { preferCache: true, reloadPending: true });
@@ -312,6 +322,10 @@ export function createCalendarPage(context) {
   }
 
   function getMarkup() {
+    if (state.isMonthLoading) {
+      return loadingState({ variant: "calendar" });
+    }
+
     const canEdit = !context.isReadOnly();
     const eventsByDate = getEventsByDate();
     const selectedEvents = getSelectedDateEvents();
@@ -364,10 +378,44 @@ export function createCalendarPage(context) {
                 </div>
               </section>
             `
-            : ""
+            : state.isPendingLoading
+              ? getUpcomingEventsLoadingMarkup()
+              : ""
         }
       </div>
       ${getSelectionBarMarkup()}
+    `;
+  }
+
+  function getUpcomingEventsLoadingMarkup() {
+    return `
+      <section class="loading-state__calendar-section" aria-label="Carregando proximos eventos">
+        <div class="events-section-divider loading-state__calendar-divider">
+          <span>Próximos eventos</span>
+        </div>
+        <div class="events-list">
+          ${Array.from(
+            { length: 2 },
+            () => `
+              <article class="card event-card loading-state__event-card">
+                <div class="event-card__top">
+                  <div class="event-card__body">
+                    <div class="loading-state__event-icon"></div>
+                    <div class="event-card__content">
+                      <div class="loading-state__line loading-state__line--event-title"></div>
+                      <div class="loading-state__event-meta">
+                        <div class="loading-state__line loading-state__line--event-date"></div>
+                        <div class="loading-state__line loading-state__line--event-time"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="loading-state__event-action"></div>
+                </div>
+              </article>
+            `
+          ).join("")}
+        </div>
+      </section>
     `;
   }
 
