@@ -8,6 +8,52 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener("push", (event) => {
+  const fallbackPayload = {
+    title: "Marivini",
+    body: "Você tem uma nova notificação do Marivini.",
+    icon: "./assets/icons/icon-192.png",
+    badge: "./assets/icons/badge-96.png",
+    tag: "marivini-push-notification",
+    data: {
+      url: APP_URL
+    }
+  };
+
+  let payload = fallbackPayload;
+
+  if (event.data) {
+    try {
+      const parsedPayload = event.data.json();
+      payload = {
+        ...fallbackPayload,
+        ...parsedPayload,
+        data: {
+          ...fallbackPayload.data,
+          ...(parsedPayload?.data ?? {})
+        }
+      };
+    } catch {
+      payload = {
+        ...fallbackPayload,
+        body: event.data.text() || fallbackPayload.body
+      };
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || fallbackPayload.title, {
+      body: payload.body || fallbackPayload.body,
+      icon: payload.icon || fallbackPayload.icon,
+      badge: payload.badge || fallbackPayload.badge,
+      tag: payload.tag || fallbackPayload.tag,
+      data: {
+        url: payload.data?.url || APP_URL
+      }
+    })
+  );
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 

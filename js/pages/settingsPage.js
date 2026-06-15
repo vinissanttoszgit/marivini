@@ -9,6 +9,7 @@ export async function openSettingsModal(context) {
   const activeTheme = getSavedThemePreset();
   let viewContext;
   let availableViews = [];
+  let notificationsState;
 
   try {
     viewContext = await viewContextService.getActiveView();
@@ -27,10 +28,22 @@ export async function openSettingsModal(context) {
     availableViews = [];
   }
 
+  try {
+    notificationsState = await notificationsService.getCurrentSubscriptionStatus();
+  } catch (error) {
+    notificationsState = {
+      enabled: false,
+      permission: notificationsService.getPermissionState(),
+      pushSupported: notificationsService.isSupported(),
+      supported: notificationsService.isSupported(),
+      vapidConfigured: true,
+      errorMessage: error.message || "Não foi possível carregar o estado das notificações."
+    };
+  }
+
   const inactiveViews = availableViews.filter(
     (view) => String(view.owner_user_id) !== String(viewContext.activeUserId)
   );
-  const notificationsState = getNotificationsState();
 
   context.modal.open({
     title: "Configurações",
@@ -149,21 +162,21 @@ export async function openSettingsModal(context) {
   });
 }
 
-function getNotificationsState() {
-  const supported = notificationsService.isSupported();
-  const permission = notificationsService.getPermissionState();
-  const enabled = notificationsService.isEnabled();
+function renderNotificationsActions({ supported, permission, enabled, pushSupported, vapidConfigured, errorMessage }) {
+  if (!supported || !pushSupported) {
+    return '<p class="settings-feedback">Este navegador não oferece suporte para notificações push neste dispositivo.</p>';
+  }
 
-  return {
-    enabled,
-    permission,
-    supported
-  };
-}
+  if (!vapidConfigured) {
+    return `
+      <p class="settings-feedback settings-feedback--warning">
+        A chave pública VAPID de push ainda precisa ser configurada antes de ativar notificações neste celular.
+      </p>
+    `;
+  }
 
-function renderNotificationsActions({ supported, permission, enabled }) {
-  if (!supported) {
-    return '<p class="settings-feedback">Este navegador não oferece suporte para notificações neste dispositivo.</p>';
+  if (errorMessage) {
+    return `<p class="settings-feedback settings-feedback--warning">${errorMessage}</p>`;
   }
 
   if (permission === "denied") {
@@ -188,10 +201,10 @@ function renderNotificationsActions({ supported, permission, enabled }) {
 function bindNotificationsActions(context) {
   document.querySelector("#enable-notifications-button")?.addEventListener("click", async () => {
     try {
-      const permission = await notificationsService.enableOnThisDevice();
+      const { permission, status } = await notificationsService.enableOnThisDevice();
 
       if (permission === "granted") {
-        context.toast.success("Notificações ativadas neste celular.");
+        context.toast.success(status.enabled ? "Notificações ativadas neste celular." : "Permissão concedida, mas a inscrição push não foi concluída.");
         context.modal.close();
         await openSettingsModal(context);
         return;
@@ -201,6 +214,11 @@ function bindNotificationsActions(context) {
         context.toast.error("Permissão de notificações bloqueada.");
         context.modal.close();
         await openSettingsModal(context);
+        return;
+      }
+
+      if (permission === "unsupported") {
+        context.toast.error("Este navegador não suporta notificações push.");
       }
     } catch (error) {
       context.toast.error(error.message || "Não foi possível ativar as notificações.");
@@ -217,9 +235,13 @@ function bindNotificationsActions(context) {
   });
 
   document.querySelector("#disable-notifications-button")?.addEventListener("click", async () => {
-    notificationsService.disableOnThisDevice();
-    context.toast.success("Notificações desativadas neste celular.");
-    context.modal.close();
-    await openSettingsModal(context);
+    try {
+      await notificationsService.disableOnThisDevice();
+      context.toast.success("Notificações desativadas neste celular.");
+      context.modal.close();
+      await openSettingsModal(context);
+    } catch (error) {
+      context.toast.error(error.message || "Não foi possível desativar as notificações.");
+    }
   });
 }
