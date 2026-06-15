@@ -1,3 +1,6 @@
+import { eventCardSkeleton } from "./eventCardSkeleton.js";
+import { sectionDivider } from "./sectionDivider.js";
+
 export function loadingState({ variant = "default", dateLabel = "Hoje" } = {}) {
   if (variant === "habits") {
     return `
@@ -39,15 +42,13 @@ export function loadingState({ variant = "default", dateLabel = "Hoje" } = {}) {
         </section>
         <section class="loading-state__calendar-section" aria-label="Carregando eventos do dia">
           <article class="card event-card loading-state__event-card">
-            ${eventCardLoadingState()}
+            ${eventCardSkeleton({ article: false })}
           </article>
         </section>
         <section class="loading-state__calendar-section" aria-label="Carregando próximos eventos">
-          <div class="events-section-divider loading-state__calendar-divider">
-            <span>Próximos eventos</span>
-          </div>
+          ${sectionDivider({ label: "Próximos eventos", className: "events-section-divider loading-state__calendar-divider" })}
           <div class="events-list">
-            ${Array.from({ length: 2 }, () => `<article class="card event-card loading-state__event-card">${eventCardLoadingState(true)}</article>`).join("")}
+            ${Array.from({ length: 2 }, () => eventCardSkeleton({ showDate: true })).join("")}
           </div>
         </section>
       </div>
@@ -120,24 +121,6 @@ function calendarDayLoadingState(index) {
     <div class="loading-state__calendar-day ${isOutside ? "is-outside" : ""}">
       <div class="loading-state__line loading-state__line--calendar-day-number"></div>
       <div class="loading-state__calendar-day-dot"></div>
-    </div>
-  `;
-}
-
-function eventCardLoadingState(showDate = false) {
-  return `
-    <div class="event-card__top">
-      <div class="event-card__body">
-        <div class="loading-state__event-icon"></div>
-        <div class="event-card__content">
-          <div class="loading-state__line loading-state__line--event-title"></div>
-          <div class="loading-state__event-meta">
-            ${showDate ? '<div class="loading-state__line loading-state__line--event-date"></div>' : ""}
-            <div class="loading-state__line loading-state__line--event-time"></div>
-          </div>
-        </div>
-      </div>
-      <div class="loading-state__event-action"></div>
     </div>
   `;
 }

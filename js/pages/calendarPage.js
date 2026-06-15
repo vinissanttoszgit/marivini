@@ -3,6 +3,7 @@ import { button } from "../components/button.js";
 import { calendarGrid } from "../components/calendarGrid.js";
 import { emptyState } from "../components/emptyState.js";
 import { eventCard } from "../components/eventCard.js";
+import { eventCardSkeleton } from "../components/eventCardSkeleton.js";
 import { loadingState } from "../components/loadingState.js";
 import { modalFooterActions } from "../components/modalFooterActions.js";
 import { sectionDivider } from "../components/sectionDivider.js";
@@ -441,26 +442,7 @@ export function createCalendarPage(context) {
       <section class="loading-state__calendar-section" aria-label="Carregando proximos eventos">
         ${sectionDivider({ label: "Próximos eventos", className: "events-section-divider loading-state__calendar-divider" })}
         <div class="events-list">
-          ${Array.from(
-            { length: 2 },
-            () => `
-              <article class="card event-card loading-state__event-card">
-                <div class="event-card__top">
-                  <div class="event-card__body">
-                    <div class="loading-state__event-icon"></div>
-                    <div class="event-card__content">
-                      <div class="loading-state__line loading-state__line--event-title"></div>
-                      <div class="loading-state__event-meta">
-                        <div class="loading-state__line loading-state__line--event-date"></div>
-                        <div class="loading-state__line loading-state__line--event-time"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="loading-state__event-action"></div>
-                </div>
-              </article>
-            `
-          ).join("")}
+          ${Array.from({ length: 2 }, () => eventCardSkeleton({ showDate: true })).join("")}
         </div>
       </section>
     `;
