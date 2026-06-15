@@ -170,6 +170,39 @@ export function createCalendarPage(context) {
     );
   }
 
+  function getUpcomingEventGroups() {
+    const currentDate = new Date(`${todayISO()}T12:00:00`);
+    const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
+    const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    const nextMonthKey = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}`;
+
+    return getUpcomingEvents().reduce((groups, event) => {
+      const [year, month] = String(event.event_date).split("-");
+      const monthKey = `${year}-${month}`;
+      const monthDate = new Date(Number(year), Number(month) - 1, 1);
+      let title = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(monthDate);
+      if (monthKey === currentMonthKey) {
+        title = "Este mês";
+      } else if (monthKey === nextMonthKey) {
+        title = "Próximo mês";
+      }
+
+      const existingGroup = groups.find((group) => group.key === monthKey);
+      if (existingGroup) {
+        existingGroup.events.push(event);
+        return groups;
+      }
+
+      groups.push({
+        key: monthKey,
+        title,
+        events: [event]
+      });
+
+      return groups;
+    }, []);
+  }
+
   async function fetchMonthEvents(date) {
     const { startDate, endDate } = getCalendarMonthBounds(date);
     return sortEvents(await eventsService.listEventsByMonth({ startDate, endDate }));
@@ -335,16 +368,16 @@ export function createCalendarPage(context) {
     const canEdit = !context.isReadOnly();
     const eventsByDate = getEventsByDate();
     const selectedEvents = getSelectedDateEvents();
-    const upcomingEvents = getUpcomingEvents();
+    const upcomingEventGroups = getUpcomingEventGroups();
     const selectionSet = getSelectionSet();
 
     return `
       <div class="page-stack ${state.selectionMode && canEdit ? "page-stack--selection-mode" : ""}">
         <section class="card calendar-card">
           <div class="calendar-header">
-            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-month" aria-label="Mês anterior"></button>
-            <button class="calendar-header__label calendar-header__label-button" id="reset-calendar-month" type="button" aria-label="Voltar para o mês atual">${formatMonthYear(state.currentMonth)}</button>
-            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-month" aria-label="Próximo mês"></button>
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-month" aria-label="MÃªs anterior"></button>
+            <button class="calendar-header__label calendar-header__label-button" id="reset-calendar-month" type="button" aria-label="Voltar para o mÃªs atual">${formatMonthYear(state.currentMonth)}</button>
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-month" aria-label="PrÃ³ximo mÃªs"></button>
           </div>
           ${calendarGrid({ currentDate: state.currentMonth, selectedDate: state.selectedDate, eventsByDate })}
         </section>
@@ -364,25 +397,31 @@ export function createCalendarPage(context) {
         }
 
         ${
-          upcomingEvents.length
+          upcomingEventGroups.length
             ? `
-              <section class="events-upcoming">
-                <div class="events-section-divider">
-                  <span>Próximos eventos</span>
-                </div>
-                <div class="events-list">
-                  ${upcomingEvents
-                    .map((event) =>
-                      eventCard(event, {
-                        isSelectionMode: state.selectionMode && canEdit,
-                        isSelected: canEdit && selectionSet.has(String(event.id)),
-                        showDate: true,
-                        canEdit
-                      })
-                    )
-                    .join("")}
-                </div>
-              </section>
+              ${upcomingEventGroups
+                .map(
+                  (group) => `
+                    <section class="events-upcoming">
+                      <div class="events-section-divider">
+                        <span>${group.title}</span>
+                      </div>
+                      <div class="events-list">
+                        ${group.events
+                          .map((event) =>
+                            eventCard(event, {
+                              isSelectionMode: state.selectionMode && canEdit,
+                              isSelected: canEdit && selectionSet.has(String(event.id)),
+                              showDate: true,
+                              canEdit
+                            })
+                          )
+                          .join("")}
+                      </div>
+                    </section>
+                  `
+                )
+                .join("")}
             `
             : state.isPendingLoading
               ? getUpcomingEventsLoadingMarkup()
@@ -392,7 +431,6 @@ export function createCalendarPage(context) {
       ${getSelectionBarMarkup()}
     `;
   }
-
   function getUpcomingEventsLoadingMarkup() {
     return `
       <section class="loading-state__calendar-section" aria-label="Carregando proximos eventos">
@@ -700,13 +738,14 @@ export function createCalendarPage(context) {
     return formatTimeLabel(value);
   }
 
-  function getTimeSlotOptions() {
-    return Array.from({ length: (24 * 60) / TIME_SLOT_STEP_MINUTES }, (_, index) => {
-      const totalMinutes = index * TIME_SLOT_STEP_MINUTES;
-      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-      const minutes = String(totalMinutes % 60).padStart(2, "0");
-      return `${hours}:${minutes}`;
-    });
+  function getHourOptions() {
+    return Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
+  }
+
+  function getMinuteOptions() {
+    return Array.from({ length: 60 / TIME_SLOT_STEP_MINUTES }, (_, index) =>
+      String(index * TIME_SLOT_STEP_MINUTES).padStart(2, "0")
+    );
   }
 
   function getDatePickerMarkup(selectedDate) {
@@ -744,25 +783,55 @@ export function createCalendarPage(context) {
 
   function getTimePickerMarkup(selectedTime) {
     const normalizedTime = selectedTime ? String(selectedTime).slice(0, 5) : "";
+    const [selectedHour = "", selectedMinute = ""] = normalizedTime.split(":");
 
     return `
       <div class="event-time-picker" id="event-time-picker" hidden>
-        <button type="button" class="event-time-picker__option ${!normalizedTime ? "is-selected" : ""}" data-picker-time="">
+        <button
+          type="button"
+          class="event-time-picker__clear ${!normalizedTime ? "is-selected" : ""}"
+          data-picker-time=""
+        >
           Sem horario
         </button>
-        ${getTimeSlotOptions()
-          .map(
-            (time) => `
-              <button
-                type="button"
-                class="event-time-picker__option ${normalizedTime === time ? "is-selected" : ""}"
-                data-picker-time="${time}"
-              >
-                ${time}
-              </button>
-            `
-          )
-          .join("")}
+        <div class="event-time-picker__columns">
+          <div class="event-time-picker__column">
+            <span class="event-time-picker__column-title">Hora</span>
+            <div class="event-time-picker__options">
+              ${getHourOptions()
+                .map(
+                  (hour) => `
+                    <button
+                      type="button"
+                      class="event-time-picker__option ${selectedHour === hour ? "is-selected" : ""}"
+                      data-picker-hour="${hour}"
+                    >
+                      ${hour}
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+          <div class="event-time-picker__column">
+            <span class="event-time-picker__column-title">Min</span>
+            <div class="event-time-picker__options">
+              ${getMinuteOptions()
+                .map(
+                  (minute) => `
+                    <button
+                      type="button"
+                      class="event-time-picker__option ${selectedMinute === minute ? "is-selected" : ""}"
+                      data-picker-minute="${minute}"
+                    >
+                      ${minute}
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -800,9 +869,29 @@ export function createCalendarPage(context) {
     };
 
     const syncTimePicker = () => {
+      const [selectedHour = "", selectedMinute = ""] = String(timeInput.value || "").split(":");
+
       timePicker.querySelectorAll("[data-picker-time]").forEach((buttonElement) => {
         buttonElement.classList.toggle("is-selected", buttonElement.dataset.pickerTime === (timeInput.value || ""));
       });
+
+      timePicker.querySelectorAll("[data-picker-hour]").forEach((buttonElement) => {
+        buttonElement.classList.toggle("is-selected", buttonElement.dataset.pickerHour === selectedHour);
+      });
+
+      timePicker.querySelectorAll("[data-picker-minute]").forEach((buttonElement) => {
+        buttonElement.classList.toggle("is-selected", buttonElement.dataset.pickerMinute === selectedMinute);
+      });
+    };
+
+    const setTimeValue = ({ hour, minute } = {}) => {
+      const [currentHour = "", currentMinute = ""] = String(timeInput.value || "").split(":");
+      const nextHour = hour ?? currentHour || getHourOptions()[0];
+      const nextMinute = minute ?? currentMinute || getMinuteOptions()[0];
+
+      timeInput.value = `${nextHour}:${nextMinute}`;
+      timeValue.textContent = getEventTimeLabel(timeInput.value);
+      syncTimePicker();
     };
 
     const syncDatePicker = () => {
@@ -879,6 +968,18 @@ export function createCalendarPage(context) {
         timeValue.textContent = getEventTimeLabel(timeInput.value);
         syncTimePicker();
         closePickers();
+      });
+    });
+
+    timePicker.querySelectorAll("[data-picker-hour]").forEach((buttonElement) => {
+      buttonElement.addEventListener("click", () => {
+        setTimeValue({ hour: buttonElement.dataset.pickerHour || "" });
+      });
+    });
+
+    timePicker.querySelectorAll("[data-picker-minute]").forEach((buttonElement) => {
+      buttonElement.addEventListener("click", () => {
+        setTimeValue({ minute: buttonElement.dataset.pickerMinute || "" });
       });
     });
 
