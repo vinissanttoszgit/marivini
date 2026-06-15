@@ -4,6 +4,9 @@ import { errorResponse, jsonResponse } from "../_shared/responses.ts";
 
 const TIME_ZONE = "America/Sao_Paulo";
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
+const DEFAULT_SLOT = "morning";
+
+type ReminderSlot = "morning" | "evening";
 
 type Habit = {
   id: string;
@@ -15,6 +18,10 @@ type HabitScheduleOverride = {
   habit_id: string;
   original_date: string;
   target_date: string;
+};
+
+type ReminderRequest = {
+  slot?: ReminderSlot;
 };
 
 function getTodayInSaoPaulo() {
@@ -43,6 +50,50 @@ function normalizeActiveDays(activeDays: number[] | null) {
 
   const uniqueDays = [...new Set(activeDays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
   return uniqueDays.length ? uniqueDays : [...DEFAULT_ACTIVE_DAYS];
+}
+
+function isReminderSlot(value: unknown): value is ReminderSlot {
+  return value === "morning" || value === "evening";
+}
+
+async function getReminderSlot(req: Request) {
+  const contentLength = req.headers.get("content-length");
+  if (contentLength === "0") {
+    return DEFAULT_SLOT;
+  }
+
+  const rawBody = await req.text();
+  if (!rawBody.trim()) {
+    return DEFAULT_SLOT;
+  }
+
+  let body: ReminderRequest;
+
+  try {
+    body = JSON.parse(rawBody) as ReminderRequest;
+  } catch {
+    throw new Error("Invalid request body.");
+  }
+
+  if (body.slot === undefined) {
+    return DEFAULT_SLOT;
+  }
+
+  if (!isReminderSlot(body.slot)) {
+    throw new Error("slot must be either morning or evening.");
+  }
+
+  return body.slot;
+}
+
+function getReminderBody(slot: ReminderSlot, incompleteCount: number) {
+  const habitsLabel = `hábito${incompleteCount > 1 ? "s" : ""}`;
+
+  if (slot === "evening") {
+    return `Fechando o dia: você ainda tem ${incompleteCount} ${habitsLabel} para concluir hoje.`;
+  }
+
+  return `Você ainda tem ${incompleteCount} ${habitsLabel} para concluir hoje.`;
 }
 
 function getHabitScheduledForDate(habit: Habit, date: string, scheduleOverrides: HabitScheduleOverride[]) {
@@ -138,12 +189,13 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const slot = await getReminderSlot(req);
     const date = getTodayInSaoPaulo();
     const userIds = await listEnabledUserIds();
     const results = [];
 
     for (const userId of userIds) {
-      const dedupeKey = `daily_habits:${userId}:${date}`;
+      const dedupeKey = `daily_habits:${slot}:${userId}:${date}`;
       if (await hasNotificationDelivery(dedupeKey)) {
         results.push({ userId, skipped: true, reason: "duplicate" });
         continue;
@@ -170,9 +222,9 @@ Deno.serve(async (req) => {
 
       const payload = {
         title: "Marivini",
-        body: `Você ainda tem ${incompleteCount} hábito${incompleteCount > 1 ? "s" : ""} para concluir hoje.`,
+        body: getReminderBody(slot, incompleteCount),
         url: "/index.html",
-        tag: `daily-habit-reminder-${date}`
+        tag: `daily-habit-reminder-${slot}-${date}`
       };
       const summary = await sendPushToUser(userId, payload);
 
@@ -200,8 +252,10 @@ Deno.serve(async (req) => {
       results.push({ userId, incompleteCount, summary });
     }
 
-    return jsonResponse({ ok: true, date, results });
+    return jsonResponse({ ok: true, date, slot, results });
   } catch (error) {
-    return errorResponse(error instanceof Error ? error.message : "Failed to send reminders.", 500);
+    const message = error instanceof Error ? error.message : "Failed to send reminders.";
+    const status = message === "Invalid request body." || message === "slot must be either morning or evening." ? 400 : 500;
+    return errorResponse(message, status);
   }
 });
