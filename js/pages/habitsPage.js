@@ -41,7 +41,6 @@ export function createHabitsPage(context) {
     dateErrorsByDate: {},
     selectedDate: todayISO(),
     summaryWeekStart: null,
-    viewMode: "list",
     weeklySummaryByWeekStart: {},
     weeklySummaryErrorsByWeekStart: {},
     selectedHabitIds: [],
@@ -474,8 +473,8 @@ export function createHabitsPage(context) {
         state.weeklySummaryByWeekStart[weekStart] = payload;
         delete state.weeklySummaryErrorsByWeekStart[weekStart];
 
-        if (state.viewMode === "weeklySummary" && getSummaryWeekStart() === weekStart) {
-          refreshContent();
+        if (document.querySelector("#weekly-summary-modal-content") && getSummaryWeekStart() === weekStart) {
+          renderWeeklySummaryModal();
         }
 
         return payload;
@@ -486,9 +485,9 @@ export function createHabitsPage(context) {
             error.message || "NÃ£o foi possÃ­vel carregar o resumo semanal.";
         }
 
-        if (state.viewMode === "weeklySummary" && getSummaryWeekStart() === weekStart && !silent) {
+        if (document.querySelector("#weekly-summary-modal-content") && getSummaryWeekStart() === weekStart && !silent) {
           context.toast.error(state.weeklySummaryErrorsByWeekStart[weekStart]);
-          refreshContent();
+          renderWeeklySummaryModal();
         }
 
         throw error;
@@ -499,12 +498,12 @@ export function createHabitsPage(context) {
         }
 
         if (
-          state.viewMode === "weeklySummary" &&
+          document.querySelector("#weekly-summary-modal-content") &&
           getSummaryWeekStart() === weekStart &&
           state.weeklySummaryErrorsByWeekStart[weekStart] &&
           !getWeeklySummary(weekStart)
         ) {
-          refreshContent();
+          renderWeeklySummaryModal();
         }
       });
 
@@ -583,7 +582,6 @@ export function createHabitsPage(context) {
       clearSelection();
       resetDateCaches();
       resetWeeklySummaryCaches();
-      state.viewMode = "list";
       state.summaryWeekStart = null;
       renderedViewUserId = activeUserId;
     }
@@ -623,10 +621,6 @@ export function createHabitsPage(context) {
   }
 
   function getMarkup() {
-    if (state.viewMode === "weeklySummary") {
-      return getWeeklySummaryMarkup();
-    }
-
     const canEdit = !context.isReadOnly();
     const activeDateData = getDateData();
     const currentDateError = state.dateErrorsByDate[state.selectedDate];
@@ -713,7 +707,7 @@ export function createHabitsPage(context) {
 
     if (!summary && isWeeklySummaryLoading(weekStart)) {
       return `
-        <div class="page-stack">
+        <div class="form-stack" id="weekly-summary-modal-content">
           ${loadingState({ variant: "habits", dateLabel: "Resumo semanal" })}
         </div>
       `;
@@ -721,13 +715,11 @@ export function createHabitsPage(context) {
 
     if (!summary) {
       return `
-        <div class="page-stack">
-          <section class="card weekly-summary-header">
-            ${button("Voltar", "ghost", 'type="button" id="close-habit-weekly-summary"')}
-            <div class="weekly-summary-header__body">
-              <p class="eyebrow">Resumo semanal</p>
-              <h2 class="weekly-summary-header__title">${formatWeekRange(weekStart)}</h2>
-            </div>
+        <div class="form-stack" id="weekly-summary-modal-content">
+          <section class="card habit-date-nav" aria-label="Navegar semanas">
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-week" aria-label="Semana anterior"></button>
+            <div class="habit-date-nav__label">${formatWeekRange(weekStart)}</div>
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-habit-week" aria-label="Proxima semana"></button>
           </section>
           ${emptyState({
             icon: "!",
@@ -739,15 +731,7 @@ export function createHabitsPage(context) {
     }
 
     return `
-      <div class="page-stack">
-        <section class="card weekly-summary-header">
-          ${button("Voltar", "ghost", 'type="button" id="close-habit-weekly-summary"')}
-          <div class="weekly-summary-header__body">
-            <p class="eyebrow">Resumo semanal</p>
-            <h2 class="weekly-summary-header__title">${formatWeekRange(weekStart)}</h2>
-            <p class="weekly-summary-header__subtitle">De segunda a domingo</p>
-          </div>
-        </section>
+      <div class="form-stack" id="weekly-summary-modal-content">
         <section class="card habit-date-nav" aria-label="Navegar semanas">
           <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-week" aria-label="Semana anterior"></button>
           <div class="habit-date-nav__label">${formatWeekRange(weekStart)}</div>
@@ -804,15 +788,19 @@ export function createHabitsPage(context) {
   function openWeeklySummary() {
     const weekStart = getWeekStartISO(state.selectedDate);
     state.summaryWeekStart = weekStart;
-    state.viewMode = "weeklySummary";
     clearSelection();
+    renderWeeklySummaryModal();
     ensureWeeklySummaryData(weekStart).catch(() => {});
-    refreshContent();
   }
 
-  function closeWeeklySummary() {
-    state.viewMode = "list";
-    refreshContent();
+  function renderWeeklySummaryModal() {
+    context.modal.open({
+      title: "Resumo semanal",
+      description: "",
+      content: getWeeklySummaryMarkup()
+    });
+
+    bindWeeklySummaryModal();
   }
 
   function changeSummaryWeek(amount) {
@@ -820,12 +808,17 @@ export function createHabitsPage(context) {
     const hasCachedSummary = Boolean(getWeeklySummary(nextWeekStart));
 
     state.summaryWeekStart = nextWeekStart;
+    renderWeeklySummaryModal();
     ensureWeeklySummaryData(nextWeekStart).catch(() => {});
-    refreshContent();
 
     if (hasCachedSummary) {
       delete state.weeklySummaryErrorsByWeekStart[nextWeekStart];
     }
+  }
+
+  function bindWeeklySummaryModal() {
+    document.querySelector("#prev-habit-week")?.addEventListener("click", () => changeSummaryWeek(-1));
+    document.querySelector("#next-habit-week")?.addEventListener("click", () => changeSummaryWeek(1));
   }
 
   function toggleSelection(habitId) {
@@ -1377,9 +1370,6 @@ export function createHabitsPage(context) {
 
   function bind(root) {
     root.querySelector("#open-habit-weekly-summary")?.addEventListener("click", () => openWeeklySummary());
-    root.querySelector("#close-habit-weekly-summary")?.addEventListener("click", () => closeWeeklySummary());
-    root.querySelector("#prev-habit-week")?.addEventListener("click", () => changeSummaryWeek(-1));
-    root.querySelector("#next-habit-week")?.addEventListener("click", () => changeSummaryWeek(1));
     root.querySelector("#empty-create-habit")?.addEventListener("click", () => openHabitModal());
     root.querySelector("#prev-habit-date")?.addEventListener("click", async () => changeSelectedDate(-1));
     root.querySelector("#next-habit-date")?.addEventListener("click", async () => changeSelectedDate(1));
