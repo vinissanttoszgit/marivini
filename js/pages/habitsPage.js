@@ -708,7 +708,7 @@ export function createHabitsPage(context) {
     if (!summary && isWeeklySummaryLoading(weekStart)) {
       return `
         <div class="form-stack" id="weekly-summary-modal-content">
-          ${loadingState({ variant: "habits", dateLabel: "Resumo semanal" })}
+          ${loadingState({ variant: "weeklySummary", dateLabel: formatWeekRange(weekStart) })}
         </div>
       `;
     }
@@ -718,7 +718,7 @@ export function createHabitsPage(context) {
         <div class="form-stack" id="weekly-summary-modal-content">
           <section class="card habit-date-nav" aria-label="Navegar semanas">
             <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-week" aria-label="Semana anterior"></button>
-            <div class="habit-date-nav__label">${formatWeekRange(weekStart)}</div>
+            <button class="habit-date-nav__label habit-date-nav__label-button" id="reset-habit-week" type="button" aria-label="Voltar para semana atual">${formatWeekRange(weekStart)}</button>
             <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-habit-week" aria-label="Proxima semana"></button>
           </section>
           ${emptyState({
@@ -734,13 +734,12 @@ export function createHabitsPage(context) {
       <div class="form-stack" id="weekly-summary-modal-content">
         <section class="card habit-date-nav" aria-label="Navegar semanas">
           <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-week" aria-label="Semana anterior"></button>
-          <div class="habit-date-nav__label">${formatWeekRange(weekStart)}</div>
+          <button class="habit-date-nav__label habit-date-nav__label-button" id="reset-habit-week" type="button" aria-label="Voltar para semana atual">${formatWeekRange(weekStart)}</button>
           <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-habit-week" aria-label="Proxima semana"></button>
         </section>
         ${progressCard({
           completed: summary.completed,
-          total: summary.total,
-          label: "Media da semana"
+          total: summary.total
         })}
         <section class="card weekly-summary-card">
           <p class="eyebrow">Total geral</p>
@@ -783,8 +782,8 @@ export function createHabitsPage(context) {
     const weekStart = getWeekStartISO(state.selectedDate);
     state.summaryWeekStart = weekStart;
     clearSelection();
-    renderWeeklySummaryModal();
     ensureWeeklySummaryData(weekStart).catch(() => {});
+    renderWeeklySummaryModal();
   }
 
   function renderWeeklySummaryModal() {
@@ -802,17 +801,35 @@ export function createHabitsPage(context) {
     const hasCachedSummary = Boolean(getWeeklySummary(nextWeekStart));
 
     state.summaryWeekStart = nextWeekStart;
-    renderWeeklySummaryModal();
     ensureWeeklySummaryData(nextWeekStart).catch(() => {});
+    renderWeeklySummaryModal();
 
     if (hasCachedSummary) {
       delete state.weeklySummaryErrorsByWeekStart[nextWeekStart];
     }
   }
 
+  function resetSummaryWeek() {
+    const currentWeekStart = getWeekStartISO(todayISO());
+
+    if (getSummaryWeekStart() === currentWeekStart) {
+      return;
+    }
+
+    const hasCachedSummary = Boolean(getWeeklySummary(currentWeekStart));
+    state.summaryWeekStart = currentWeekStart;
+    ensureWeeklySummaryData(currentWeekStart).catch(() => {});
+    renderWeeklySummaryModal();
+
+    if (hasCachedSummary) {
+      delete state.weeklySummaryErrorsByWeekStart[currentWeekStart];
+    }
+  }
+
   function bindWeeklySummaryModal() {
     document.querySelector("#prev-habit-week")?.addEventListener("click", () => changeSummaryWeek(-1));
     document.querySelector("#next-habit-week")?.addEventListener("click", () => changeSummaryWeek(1));
+    document.querySelector("#reset-habit-week")?.addEventListener("click", () => resetSummaryWeek());
   }
 
   function toggleSelection(habitId) {

@@ -54,6 +54,32 @@ export function loadingState({ variant = "default", dateLabel = "Hoje" } = {}) {
     `;
   }
 
+  if (variant === "weeklySummary") {
+    return `
+      <div class="loading-state loading-state--weekly-summary" aria-hidden="true">
+        <section class="card habit-date-nav habit-date-nav--loading" aria-label="Navegar semanas">
+          <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" type="button" aria-label="Semana anterior" disabled></button>
+          <div class="habit-date-nav__label">${dateLabel}</div>
+          <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" type="button" aria-label="Proxima semana" disabled></button>
+        </section>
+        <section class="card progress-card loading-state__habit-progress">
+          <div class="progress-card__top">
+            <div class="loading-state__habit-progress-copy">
+              <div class="loading-state__line loading-state__line--percentage"></div>
+            </div>
+            <div class="loading-state__line loading-state__line--pill"></div>
+          </div>
+          <div class="loading-state__line loading-state__line--progress"></div>
+        </section>
+        <section class="card loading-state__weekly-summary-card">
+          <div class="loading-state__weekly-summary-chart">
+            ${Array.from({ length: 7 }, () => weeklySummaryRowLoadingState()).join("")}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
   return `
     <div class="card loading-state">
       <div class="loading-state__header">
@@ -112,6 +138,21 @@ function eventCardLoadingState(showDate = false) {
         </div>
       </div>
       <div class="loading-state__event-action"></div>
+    </div>
+  `;
+}
+
+function weeklySummaryRowLoadingState() {
+  return `
+    <div class="loading-state__weekly-summary-row">
+      <div class="loading-state__line loading-state__line--weekly-day"></div>
+      <div class="loading-state__weekly-summary-bar-group">
+        <div class="loading-state__weekly-summary-meta">
+          <div class="loading-state__line loading-state__line--weekly-meta"></div>
+          <div class="loading-state__line loading-state__line--weekly-meta"></div>
+        </div>
+        <div class="loading-state__line loading-state__line--progress"></div>
+      </div>
     </div>
   `;
 }

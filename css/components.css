@@ -505,6 +505,43 @@
   gap: var(--space-3);
 }
 
+.loading-state__weekly-summary-card {
+  padding: 18px;
+}
+
+.loading-state__weekly-summary-chart {
+  display: grid;
+  gap: 14px;
+}
+
+.loading-state__weekly-summary-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.loading-state__weekly-summary-bar-group {
+  display: grid;
+  gap: 8px;
+}
+
+.loading-state__weekly-summary-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.loading-state__line--weekly-day {
+  width: 30px;
+  height: 12px;
+}
+
+.loading-state__line--weekly-meta {
+  width: 42px;
+  height: 12px;
+}
+
 .loading-state__calendar-divider span {
   opacity: 0.72;
 }
