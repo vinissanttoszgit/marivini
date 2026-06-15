@@ -743,13 +743,7 @@ export function createHabitsPage(context) {
           label: "Media da semana"
         })}
         <section class="card weekly-summary-card">
-          <div class="weekly-summary-card__top">
-            <div>
-              <p class="eyebrow">Total geral</p>
-              <div class="weekly-summary-card__value">${summary.completed}/${summary.total} habitos concluidos</div>
-            </div>
-            <div class="pill">${summary.percentage}% na semana</div>
-          </div>
+          <p class="eyebrow">Total geral</p>
           <div class="weekly-summary-chart" aria-label="Desempenho da semana">
             ${summary.days
               .map(
