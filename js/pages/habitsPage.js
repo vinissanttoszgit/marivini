@@ -6,6 +6,7 @@ import { emptyState } from "../components/emptyState.js";
 import { habitCard } from "../components/habitCard.js";
 import { progressCard } from "../components/progressCard.js";
 import { loadingState } from "../components/loadingState.js";
+import notificationsService from "../services/notificationsService.js";
 import {
   addDays,
   endOfDayISO,
@@ -874,6 +875,9 @@ export function createHabitsPage(context) {
     try {
       if (willComplete) {
         await habitLogsService.markHabitComplete({ habitId, date: state.selectedDate });
+        notificationsService.notifySharedHabitCompleted({ habitId, logDate: state.selectedDate }).catch(() => {
+          console.warn("Falha ao avisar conclusao de habito compartilhado.");
+        });
       } else {
         await habitLogsService.unmarkHabitComplete({ habitId, date: state.selectedDate });
       }

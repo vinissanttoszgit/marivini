@@ -194,6 +194,7 @@ function renderNotificationsActions({ supported, permission, enabled, pushSuppor
   return `
     <p class="settings-feedback settings-feedback--success">Notificações ativas neste celular.</p>
     ${button("Enviar notificação de teste", "secondary", 'type="button" id="send-test-notification-button"')}
+    ${button("Enviar teste real pelo servidor", "secondary", 'type="button" id="send-server-test-notification-button"')}
     ${button("Desativar notificações neste celular", "ghost", 'type="button" id="disable-notifications-button"')}
   `;
 }
@@ -231,6 +232,15 @@ function bindNotificationsActions(context) {
       context.toast.success("Notificação de teste enviada.");
     } catch (error) {
       context.toast.error(error.message || "Não foi possível enviar a notificação de teste.");
+    }
+  });
+
+  document.querySelector("#send-server-test-notification-button")?.addEventListener("click", async () => {
+    try {
+      await notificationsService.sendServerTestNotification();
+      context.toast.success("Teste real enviado pelo servidor.");
+    } catch (error) {
+      context.toast.error(error.message || "Não foi possível enviar o teste real pelo servidor.");
     }
   });
 

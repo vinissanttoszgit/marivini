@@ -312,6 +312,33 @@ async function sendTestNotification() {
   new Notification(DEFAULT_TITLE, options);
 }
 
+async function sendServerTestNotification() {
+  ensureSupabase();
+  const { data, error } = await supabase.functions.invoke("send-test-push");
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+async function notifySharedHabitCompleted({ habitId, logDate }) {
+  ensureSupabase();
+  const { data, error } = await supabase.functions.invoke("notify-shared-habit-completed", {
+    body: {
+      habit_id: habitId,
+      log_date: logDate
+    }
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 const notificationsService = {
   disableOnThisDevice,
   enableOnThisDevice,
@@ -321,6 +348,8 @@ const notificationsService = {
   registerServiceWorker,
   requestPermission,
   sendTestNotification,
+  sendServerTestNotification,
+  notifySharedHabitCompleted,
   setServiceWorkerRegistration
 };
 
