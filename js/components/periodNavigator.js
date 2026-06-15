@@ -15,9 +15,9 @@ export function periodNavigator({
 
   return `
     <section class="${className}" aria-label="${ariaLabel}">
-      <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="${prevId}" aria-label="${prevAriaLabel}"${disabledAttribute}></button>
+      <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="${prevId}" type="button" aria-label="${prevAriaLabel}"${disabledAttribute}></button>
       <button class="${labelClassName}" id="${resetId}" type="button" aria-label="${resetAriaLabel || ariaLabel}"${disabledAttribute}>${label}</button>
-      <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="${nextId}" aria-label="${nextAriaLabel}"${disabledAttribute}></button>
+      <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="${nextId}" type="button" aria-label="${nextAriaLabel}"${disabledAttribute}></button>
     </section>
   `;
 }
