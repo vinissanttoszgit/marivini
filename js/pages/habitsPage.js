@@ -6,6 +6,7 @@ import { emptyState } from "../components/emptyState.js";
 import { habitCard } from "../components/habitCard.js";
 import { periodNavigator } from "../components/periodNavigator.js";
 import { progressCard } from "../components/progressCard.js";
+import { selectionActionBar } from "../components/selectionActionBar.js";
 import { loadingState } from "../components/loadingState.js";
 import notificationsService from "../services/notificationsService.js";
 import {
@@ -614,12 +615,15 @@ export function createHabitsPage(context) {
       return "";
     }
 
-    return `
-      <section class="habit-selection-floating-bar" aria-label="Ações dos hábitos selecionados">
-        ${button("Cancelar", "ghost", 'type="button" id="cancel-habit-selection"')}
-        ${button(`Excluir ${state.selectedHabitIds.length}`, "danger", `type="button" id="delete-selected-habits" ${state.selectedHabitIds.length ? "" : "disabled"}`)}
-      </section>
-    `;
+    return selectionActionBar({
+      ariaLabel: "Ações dos hábitos selecionados",
+      className: "habit-selection-floating-bar",
+      cancelLabel: "Cancelar",
+      cancelId: "cancel-habit-selection",
+      deleteLabel: `Excluir ${state.selectedHabitIds.length}`,
+      deleteId: "delete-selected-habits",
+      deleteDisabled: !state.selectedHabitIds.length
+    });
   }
 
   function getMarkup() {

@@ -4,6 +4,7 @@ import { calendarGrid } from "../components/calendarGrid.js";
 import { emptyState } from "../components/emptyState.js";
 import { eventCard } from "../components/eventCard.js";
 import { loadingState } from "../components/loadingState.js";
+import { selectionActionBar } from "../components/selectionActionBar.js";
 import {
   formatLongDate,
   formatTimeLabel,
@@ -352,12 +353,15 @@ export function createCalendarPage(context) {
       return "";
     }
 
-    return `
-      <section class="event-selection-floating-bar" aria-label="Ações dos eventos selecionados">
-        ${button("Cancelar", "ghost", 'type="button" id="cancel-event-selection"')}
-        ${button(`Excluir ${state.selectedEventIds.length}`, "danger", `type="button" id="delete-selected-events" ${state.selectedEventIds.length ? "" : "disabled"}`)}
-      </section>
-    `;
+    return selectionActionBar({
+      ariaLabel: "Ações dos eventos selecionados",
+      className: "event-selection-floating-bar",
+      cancelLabel: "Cancelar",
+      cancelId: "cancel-event-selection",
+      deleteLabel: `Excluir ${state.selectedEventIds.length}`,
+      deleteId: "delete-selected-events",
+      deleteDisabled: !state.selectedEventIds.length
+    });
   }
 
   function getMarkup() {
