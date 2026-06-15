@@ -22,6 +22,7 @@ const EMOJI_OPTIONS = ["✨", "📚", "💧", "🏃", "🧘", "🍎", "💻", "�
 const DEFAULT_ACTIVE_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const LONG_PRESS_MS = 500;
 const POINTER_CANCEL_DISTANCE = 10;
+const HABIT_PRELOAD_RADIUS = 3;
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "SEG" },
   { value: 2, label: "TER" },
@@ -35,9 +36,8 @@ const WEEKDAY_OPTIONS = [
 export function createHabitsPage(context) {
   const state = {
     habits: [],
-    selectedLogs: [],
-    recentLogs: [],
-    scheduleOverrides: [],
+    habitDataByDate: {},
+    dateErrorsByDate: {},
     selectedDate: todayISO(),
     selectedHabitIds: [],
     selectionMode: false
@@ -47,6 +47,8 @@ export function createHabitsPage(context) {
   let consumedLongPressHabitId = null;
   let consumedLongPressUntil = 0;
   let renderedViewUserId = null;
+  const pendingDateRequests = new Map();
+  const dateRequestVersions = new Map();
 
   function normalizeActiveDays(activeDays) {
     if (!Array.isArray(activeDays) || !activeDays.length) {
@@ -64,12 +66,55 @@ export function createHabitsPage(context) {
     return uniqueDays.length ? uniqueDays : [...DEFAULT_ACTIVE_DAYS];
   }
 
+  function createEmptyDateData() {
+    return {
+      selectedLogs: [],
+      recentLogs: [],
+      scheduleOverrides: []
+    };
+  }
+
+  function resetDateCaches() {
+    state.habitDataByDate = {};
+    state.dateErrorsByDate = {};
+    pendingDateRequests.clear();
+    dateRequestVersions.clear();
+  }
+
   function getSelectionSet() {
     return new Set(state.selectedHabitIds.map(String));
   }
 
   function getSelectedDateObject() {
     return parseISODate(state.selectedDate);
+  }
+
+  function getDateData(date = state.selectedDate) {
+    return state.habitDataByDate[date] ?? null;
+  }
+
+  function ensureDateCacheEntry(date) {
+    if (!state.habitDataByDate[date]) {
+      state.habitDataByDate[date] = createEmptyDateData();
+    }
+
+    return state.habitDataByDate[date];
+  }
+
+  function isDateLoading(date) {
+    return pendingDateRequests.has(date);
+  }
+
+  function bumpDateRequestVersions(matchDate) {
+    const dates = new Set([...Object.keys(state.habitDataByDate), ...pendingDateRequests.keys()]);
+
+    dates.forEach((cacheDate) => {
+      if (!matchDate(cacheDate)) {
+        return;
+      }
+
+      dateRequestVersions.set(cacheDate, (dateRequestVersions.get(cacheDate) ?? 0) + 1);
+    });
   }
 
   function getHabitSortValue(habit) {
@@ -93,20 +138,26 @@ export function createHabitsPage(context) {
     });
   }
 
+  function getActiveDateData() {
+    return getDateData() ?? createEmptyDateData();
+  }
+
   function getVisibleHabits() {
+    const activeDateData = getActiveDateData();
+
     return sortHabits(
       state.habits
         .map((habit) => ({
           ...habit,
-          schedule: getVisibleHabitSchedule(habit)
+          schedule: getVisibleHabitSchedule(habit, activeDateData.scheduleOverrides)
         }))
         .filter((habit) => habit.schedule)
     );
   }
 
-  function getHabitScheduleForDate(habit, date) {
+  function getHabitScheduleForDate(habit, date, scheduleOverrides = []) {
     const habitId = String(habit.id);
-    const targetOverride = state.scheduleOverrides.find(
+    const targetOverride = scheduleOverrides.find(
       (override) => String(override.habit_id) === habitId && override.target_date === date
     );
 
@@ -119,7 +170,7 @@ export function createHabitsPage(context) {
       };
     }
 
-    const originalOverride = state.scheduleOverrides.find(
+    const originalOverride = scheduleOverrides.find(
       (override) => String(override.habit_id) === habitId && override.original_date === date
     );
 
@@ -139,29 +190,35 @@ export function createHabitsPage(context) {
     return null;
   }
 
-  function hasHabitOccurrenceOnDate(habit, date) {
-    return Boolean(getHabitScheduleForDate(habit, date));
+  function hasHabitOccurrenceOnDate(habit, date, scheduleOverrides) {
+    return Boolean(getHabitScheduleForDate(habit, date, scheduleOverrides));
   }
 
-  function getVisibleHabitSchedule(habit) {
-    return getHabitScheduleForDate(habit, state.selectedDate);
+  function getVisibleHabitSchedule(habit, scheduleOverrides) {
+    return getHabitScheduleForDate(habit, state.selectedDate, scheduleOverrides);
   }
 
   function canPostponeHabit(habit, completedIds) {
+    const activeDateData = getActiveDateData();
+
     if (context.isReadOnly() || state.selectionMode || completedIds.has(String(habit.id))) {
       return false;
     }
 
-    if (!hasHabitOccurrenceOnDate(habit, state.selectedDate)) {
+    if (!hasHabitOccurrenceOnDate(habit, state.selectedDate, activeDateData.scheduleOverrides)) {
       return false;
     }
 
     const tomorrow = startOfDayISO(addDays(getSelectedDateObject(), 1));
-    return !hasHabitOccurrenceOnDate(habit, tomorrow);
+    return !hasHabitOccurrenceOnDate(habit, tomorrow, activeDateData.scheduleOverrides);
   }
 
   function getCompletedIds() {
-    return new Set(state.selectedLogs.filter((log) => log.completed).map((log) => String(log.habit_id)));
+    return new Set(
+      getActiveDateData()
+        .selectedLogs.filter((log) => log.completed)
+        .map((log) => String(log.habit_id))
+    );
   }
 
   function getDateLabel() {
@@ -209,31 +266,155 @@ export function createHabitsPage(context) {
     );
   }
 
-  async function loadSelectedDateData() {
-    const selectedDateObject = getSelectedDateObject();
+  async function fetchDateData(date) {
+    const selectedDateObject = parseISODate(date);
     const startDate = startOfDayISO(addDays(selectedDateObject, -60));
     const logEndDate = endOfDayISO(selectedDateObject);
     const overrideEndDate = endOfDayISO(addDays(selectedDateObject, 1));
 
-    state.selectedLogs = await habitLogsService.listLogsByDate(state.selectedDate);
-    state.recentLogs = await habitLogsService.listLogsRange({
-      startDate,
-      endDate: logEndDate
+    const [selectedLogs, recentLogs, scheduleOverrides] = await Promise.all([
+      habitLogsService.listLogsByDate(date),
+      habitLogsService.listLogsRange({
+        startDate,
+        endDate: logEndDate
+      }),
+      habitScheduleOverridesService.listOverridesRange({
+        startDate,
+        endDate: overrideEndDate
+      })
+    ]);
+
+    return {
+      selectedLogs,
+      recentLogs,
+      scheduleOverrides
+    };
+  }
+
+  async function ensureDateData(date, { force = false, silent = false } = {}) {
+    if (!force && getDateData(date)) {
+      return getDateData(date);
+    }
+
+    if (!force && pendingDateRequests.has(date)) {
+      return pendingDateRequests.get(date);
+    }
+
+    const requestVersion = (dateRequestVersions.get(date) ?? 0) + 1;
+    dateRequestVersions.set(date, requestVersion);
+    delete state.dateErrorsByDate[date];
+
+    const request = fetchDateData(date)
+      .then((payload) => {
+        if (dateRequestVersions.get(date) !== requestVersion) {
+          return getDateData(date);
+        }
+
+        state.habitDataByDate[date] = payload;
+        delete state.dateErrorsByDate[date];
+
+        if (state.selectedDate === date) {
+          refreshContent();
+        }
+
+        return payload;
+      })
+      .catch((error) => {
+        if (dateRequestVersions.get(date) === requestVersion) {
+          state.dateErrorsByDate[date] = error.message || "Não foi possível carregar os hábitos deste dia.";
+        }
+
+        if (!silent && state.selectedDate === date) {
+          context.toast.error(state.dateErrorsByDate[date]);
+          refreshContent();
+        }
+
+        throw error;
+      })
+      .finally(() => {
+        if (pendingDateRequests.get(date) === request) {
+          pendingDateRequests.delete(date);
+        }
+
+        if (state.selectedDate === date && state.dateErrorsByDate[date] && !getDateData(date)) {
+          refreshContent();
+        }
+      });
+
+    pendingDateRequests.set(date, request);
+    return request;
+  }
+
+  function preloadDateWindow(centerDate) {
+    const centerDateObject = parseISODate(centerDate);
+
+    for (let offset = -HABIT_PRELOAD_RADIUS; offset <= HABIT_PRELOAD_RADIUS; offset += 1) {
+      const date = startOfDayISO(addDays(centerDateObject, offset));
+
+      if (date === centerDate) {
+        continue;
+      }
+
+      ensureDateData(date, { silent: true }).catch(() => {});
+    }
+  }
+
+  function updateCachedLogCollections({ habitId, date, completed }) {
+    const normalizedId = String(habitId);
+    const matchesHabitAndDate = (log) => String(log.habit_id) === normalizedId && log.log_date === date;
+
+    bumpDateRequestVersions((cacheDate) => cacheDate >= date);
+
+    Object.keys(state.habitDataByDate).forEach((cacheDate) => {
+      if (cacheDate < date) {
+        return;
+      }
+
+      const cacheEntry = ensureDateCacheEntry(cacheDate);
+      cacheEntry.recentLogs = completed
+        ? [
+            ...cacheEntry.recentLogs.filter((log) => !matchesHabitAndDate(log)),
+            { habit_id: habitId, log_date: date, completed: true }
+          ]
+        : cacheEntry.recentLogs.filter((log) => !matchesHabitAndDate(log));
+
+      if (cacheDate === date) {
+        cacheEntry.selectedLogs = completed
+          ? [
+              ...cacheEntry.selectedLogs.filter((log) => !matchesHabitAndDate(log)),
+              { habit_id: habitId, log_date: date, completed: true }
+            ]
+          : cacheEntry.selectedLogs.filter((log) => !matchesHabitAndDate(log));
+      }
     });
-    state.scheduleOverrides = await habitScheduleOverridesService.listOverridesRange({
-      startDate,
-      endDate: overrideEndDate
+  }
+
+  function mergeOverrideIntoCaches(override) {
+    bumpDateRequestVersions((cacheDate) => cacheDate >= override.original_date);
+
+    Object.keys(state.habitDataByDate).forEach((cacheDate) => {
+      if (cacheDate < override.original_date) {
+        return;
+      }
+
+      const cacheEntry = ensureDateCacheEntry(cacheDate);
+      cacheEntry.scheduleOverrides = [
+        ...cacheEntry.scheduleOverrides.filter((item) => String(item.id) !== String(override.id)),
+        override
+      ];
     });
   }
 
   async function load() {
-    await Promise.all([loadHabits(), loadSelectedDateData()]);
+    await Promise.all([loadHabits(), ensureDateData(state.selectedDate, { force: true })]);
+    preloadDateWindow(state.selectedDate);
   }
 
   async function render(root) {
     const activeUserId = context.getViewContext().activeUserId;
     if (renderedViewUserId !== activeUserId) {
       clearSelection();
+      resetDateCaches();
       renderedViewUserId = activeUserId;
     }
 
@@ -243,7 +424,7 @@ export function createHabitsPage(context) {
       subtitle: ""
     });
 
-    root.innerHTML = loadingState();
+    root.innerHTML = loadingState({ variant: "habits", dateLabel: getDateLabel() });
 
     try {
       await load();
@@ -273,6 +454,17 @@ export function createHabitsPage(context) {
 
   function getMarkup() {
     const canEdit = !context.isReadOnly();
+    const activeDateData = getDateData();
+    const currentDateError = state.dateErrorsByDate[state.selectedDate];
+
+    if (!activeDateData && isDateLoading(state.selectedDate)) {
+      return `
+        <div class="page-stack ${state.selectionMode && canEdit ? "page-stack--selection-mode" : ""}">
+          ${loadingState({ variant: "habits", dateLabel: getDateLabel() })}
+        </div>
+      `;
+    }
+
     const visibleHabits = getVisibleHabits();
     const completedIds = getCompletedIds();
     const completed = visibleHabits.filter((habit) => completedIds.has(String(habit.id))).length;
@@ -287,41 +479,47 @@ export function createHabitsPage(context) {
         </section>
         ${progressCard({ completed, total: visibleHabits.length })}
         ${
-          visibleHabits.length
-            ? `<section class="habit-list">${visibleHabits
-                .map((habit) =>
-                  habitCard({
-                    habit,
-                    isCompleted: completedIds.has(String(habit.id)),
-                    streakData: calculateHabitStatus(
-                      state.recentLogs.filter((log) => String(log.habit_id) === String(habit.id)),
-                      state.selectedDate,
-                      {
-                        habit,
-                        overrides: state.scheduleOverrides
-                      }
-                    ),
-                    isSelectionMode: state.selectionMode && canEdit,
-                    isSelected: canEdit && selectionSet.has(String(habit.id)),
-                    canEdit,
-                    canPostpone: canPostponeHabit(habit, completedIds)
-                  })
-                )
-                .join("")}</section>`
-            : emptyState({
-                icon: "🌿",
-                title: state.habits.length ? "Nada para este dia" : "Nenhum hábito criado",
-                description: state.habits.length
-                  ? "Escolha outro dia ou adicione um hábito para esta rotina."
-                  : "Adicione seu primeiro hábito para começar a acompanhar sua rotina.",
-                action: canEdit
-                  ? button(
-                      state.habits.length ? "Adicionar hábito" : "Criar primeiro hábito",
-                      "primary",
-                      'id="empty-create-habit"'
-                    )
-                  : ""
+          currentDateError && !activeDateData
+            ? emptyState({
+                icon: "⚠️",
+                title: "Falha ao carregar",
+                description: "Tente navegar novamente para este dia."
               })
+            : visibleHabits.length
+              ? `<section class="habit-list">${visibleHabits
+                  .map((habit) =>
+                    habitCard({
+                      habit,
+                      isCompleted: completedIds.has(String(habit.id)),
+                      streakData: calculateHabitStatus(
+                        activeDateData.recentLogs.filter((log) => String(log.habit_id) === String(habit.id)),
+                        state.selectedDate,
+                        {
+                          habit,
+                          overrides: activeDateData.scheduleOverrides
+                        }
+                      ),
+                      isSelectionMode: state.selectionMode && canEdit,
+                      isSelected: canEdit && selectionSet.has(String(habit.id)),
+                      canEdit,
+                      canPostpone: canPostponeHabit(habit, completedIds)
+                    })
+                  )
+                  .join("")}</section>`
+              : emptyState({
+                  icon: "🌿",
+                  title: state.habits.length ? "Nada para este dia" : "Nenhum hábito criado",
+                  description: state.habits.length
+                    ? "Escolha outro dia ou adicione um hábito para esta rotina."
+                    : "Adicione seu primeiro hábito para começar a acompanhar sua rotina.",
+                  action: canEdit
+                    ? button(
+                        state.habits.length ? "Adicionar hábito" : "Criar primeiro hábito",
+                        "primary",
+                        'id="empty-create-habit"'
+                      )
+                    : ""
+                })
         }
       </div>
       ${getSelectionBarMarkup()}
@@ -361,23 +559,8 @@ export function createHabitsPage(context) {
   }
 
   function updateLogCollections(habitId, completed) {
-    const normalizedId = String(habitId);
-    const matchesHabitAndDate = (log) =>
-      String(log.habit_id) === normalizedId && log.log_date === state.selectedDate;
-
-    state.selectedLogs = completed
-      ? [
-          ...state.selectedLogs.filter((log) => !matchesHabitAndDate(log)),
-          { habit_id: habitId, log_date: state.selectedDate, completed: true }
-        ]
-      : state.selectedLogs.filter((log) => !matchesHabitAndDate(log));
-
-    state.recentLogs = completed
-      ? [
-          ...state.recentLogs.filter((log) => !matchesHabitAndDate(log)),
-          { habit_id: habitId, log_date: state.selectedDate, completed: true }
-        ]
-      : state.recentLogs.filter((log) => !matchesHabitAndDate(log));
+    ensureDateCacheEntry(state.selectedDate);
+    updateCachedLogCollections({ habitId, date: state.selectedDate, completed });
   }
 
   async function handleToggleHabit(habitId) {
@@ -420,14 +603,17 @@ export function createHabitsPage(context) {
     const targetDate = startOfDayISO(addDays(getSelectedDateObject(), 1));
 
     try {
-      await habitScheduleOverridesService.postponeHabitOccurrence({
+      const override = await habitScheduleOverridesService.postponeHabitOccurrence({
         habitId,
         originalDate: habit.schedule?.originalDate ?? state.selectedDate,
         targetDate
       });
+
+      mergeOverrideIntoCaches(override);
       clearSelection();
-      await loadSelectedDateData();
       refreshContent();
+      preloadDateWindow(state.selectedDate);
+      preloadDateWindow(targetDate);
       context.toast.success("Hábito adiado para amanhã.");
     } catch (error) {
       context.toast.error(error.message || "Não foi possível adiar o hábito.");
@@ -435,16 +621,17 @@ export function createHabitsPage(context) {
   }
 
   async function changeSelectedDate(amount) {
-    const previousDate = state.selectedDate;
-    state.selectedDate = startOfDayISO(addDays(getSelectedDateObject(), amount));
-    clearSelection();
+    const nextDate = startOfDayISO(addDays(getSelectedDateObject(), amount));
+    const hasCachedData = Boolean(getDateData(nextDate));
 
-    try {
-      await loadSelectedDateData();
-      refreshContent();
-    } catch (error) {
-      state.selectedDate = previousDate;
-      context.toast.error(error.message || "Não foi possível carregar os hábitos deste dia.");
+    state.selectedDate = nextDate;
+    clearSelection();
+    ensureDateData(nextDate).catch(() => {});
+    preloadDateWindow(nextDate);
+    refreshContent();
+
+    if (hasCachedData) {
+      delete state.dateErrorsByDate[nextDate];
     }
   }
 
@@ -469,6 +656,7 @@ export function createHabitsPage(context) {
     clearSelection();
     context.modal.close();
     refreshContent();
+    preloadDateWindow(state.selectedDate);
     context.toast.success(habit ? "Hábito atualizado." : "Hábito criado.");
   }
 
