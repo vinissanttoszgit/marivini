@@ -2,7 +2,7 @@ import { isSupabaseConfigured, supabase } from "../config/supabase.js";
 import authService from "./authService.js";
 
 const LEGACY_ENABLED_KEY = "marivini:notifications-enabled";
-const VAPID_PUBLIC_KEY = "COLE_AQUI_SUA_VAPID_PUBLIC_KEY";
+const VAPID_PUBLIC_KEY = "BGRESTeCF_8zu08guVqD9vALilHuu3JLG6QL_KDs7Txxo_6N5Pe3jUpNxxW0KOMaqTEDQRYqDfAQ7FbYvZBSsh0";
 const DEFAULT_TITLE = "Marivini";
 const DEFAULT_BODY = "Notificações ativadas neste celular.";
 const DEFAULT_URL = new URL("../../index.html", import.meta.url).href;
