@@ -4,6 +4,7 @@ import habitScheduleOverridesService from "../services/habitScheduleOverridesSer
 import { button } from "../components/button.js";
 import { emptyState } from "../components/emptyState.js";
 import { habitCard } from "../components/habitCard.js";
+import { periodNavigator } from "../components/periodNavigator.js";
 import { progressCard } from "../components/progressCard.js";
 import { loadingState } from "../components/loadingState.js";
 import notificationsService from "../services/notificationsService.js";
@@ -641,11 +642,7 @@ export function createHabitsPage(context) {
 
     return `
       <div class="page-stack ${state.selectionMode && canEdit ? "page-stack--selection-mode" : ""}">
-        <section class="card habit-date-nav" aria-label="Selecionar data">
-          <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-date" aria-label="Dia anterior"></button>
-          <button class="habit-date-nav__label habit-date-nav__label-button" id="reset-habit-date" type="button" aria-label="Voltar para hoje">${getDateLabel()}</button>
-          <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-habit-date" aria-label="Próximo dia"></button>
-        </section>
+        ${getHabitDateNavigatorMarkup()}
         ${progressCard({
           completed,
           total: visibleHabits.length,
@@ -717,11 +714,7 @@ export function createHabitsPage(context) {
     if (!summary) {
       return `
         <div class="form-stack" id="weekly-summary-modal-content">
-          <section class="card habit-date-nav" aria-label="Navegar semanas">
-            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-week" aria-label="Semana anterior"></button>
-            <button class="habit-date-nav__label habit-date-nav__label-button" id="reset-habit-week" type="button" aria-label="Voltar para semana atual">${formatWeekRange(weekStart)}</button>
-            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-habit-week" aria-label="Proxima semana"></button>
-          </section>
+          ${getWeeklySummaryNavigatorMarkup(weekStart)}
           ${emptyState({
             icon: "!",
             title: "Falha ao carregar",
@@ -733,11 +726,7 @@ export function createHabitsPage(context) {
 
     return `
       <div class="form-stack" id="weekly-summary-modal-content">
-        <section class="card habit-date-nav" aria-label="Navegar semanas">
-          <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" id="prev-habit-week" aria-label="Semana anterior"></button>
-          <button class="habit-date-nav__label habit-date-nav__label-button" id="reset-habit-week" type="button" aria-label="Voltar para semana atual">${formatWeekRange(weekStart)}</button>
-          <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" id="next-habit-week" aria-label="Proxima semana"></button>
-        </section>
+        ${getWeeklySummaryNavigatorMarkup(weekStart)}
         ${progressCard({
           completed: summary.completed,
           total: summary.total
@@ -766,6 +755,32 @@ export function createHabitsPage(context) {
         </section>
       </div>
     `;
+  }
+
+  function getHabitDateNavigatorMarkup() {
+    return periodNavigator({
+      label: getDateLabel(),
+      ariaLabel: "Selecionar data",
+      prevId: "prev-habit-date",
+      nextId: "next-habit-date",
+      resetId: "reset-habit-date",
+      prevAriaLabel: "Dia anterior",
+      nextAriaLabel: "Próximo dia",
+      resetAriaLabel: "Voltar para hoje"
+    });
+  }
+
+  function getWeeklySummaryNavigatorMarkup(weekStart) {
+    return periodNavigator({
+      label: formatWeekRange(weekStart),
+      ariaLabel: "Navegar semanas",
+      prevId: "prev-habit-week",
+      nextId: "next-habit-week",
+      resetId: "reset-habit-week",
+      prevAriaLabel: "Semana anterior",
+      nextAriaLabel: "Proxima semana",
+      resetAriaLabel: "Voltar para semana atual"
+    });
   }
 
   function refreshContent(root = context.root) {
