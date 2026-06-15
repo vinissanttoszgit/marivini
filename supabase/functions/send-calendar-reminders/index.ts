@@ -36,6 +36,30 @@ function toEventTimestamp(event: CalendarEvent) {
   return new Date(`${event.event_date}T${event.event_time}:00-03:00`).getTime();
 }
 
+async function listEventRecipientUserIds(ownerUserId: string) {
+  const normalizedOwnerUserId = String(ownerUserId).trim();
+  if (!normalizedOwnerUserId) {
+    return [];
+  }
+
+  const supabaseAdmin = getSupabaseAdmin();
+  const { data, error } = await supabaseAdmin
+    .from("account_view_permissions")
+    .select("viewer_user_id")
+    .eq("owner_user_id", normalizedOwnerUserId)
+    .eq("can_view_calendar", true);
+
+  if (error) {
+    throw error;
+  }
+
+  return [
+    ...new Set(
+      [normalizedOwnerUserId, ...(data ?? []).map((item) => item.viewer_user_id).filter(Boolean)].map(String)
+    )
+  ];
+}
+
 async function listEventsForReminderWindow() {
   const supabaseAdmin = getSupabaseAdmin();
   const { data, error } = await supabaseAdmin
@@ -72,52 +96,71 @@ Deno.serve(async (req) => {
     const results = [];
 
     for (const event of events) {
-      if (!event.event_time || !event.reminder_minutes) {
-        continue;
-      }
+      try {
+        if (!event.event_time || !event.reminder_minutes) {
+          continue;
+        }
 
-      const reminderAt = toEventTimestamp(event) - Number(event.reminder_minutes) * 60 * 1000;
-      if (reminderAt < windowStart || reminderAt > now) {
-        continue;
-      }
+        const reminderAt = toEventTimestamp(event) - Number(event.reminder_minutes) * 60 * 1000;
+        if (reminderAt < windowStart || reminderAt > now) {
+          continue;
+        }
 
-      const dedupeKey = `calendar:${event.id}:${event.reminder_minutes}`;
-      if (await hasNotificationDelivery(dedupeKey)) {
-        results.push({ eventId: event.id, skipped: true, reason: "duplicate" });
-        continue;
-      }
+        const minutes = Number(event.reminder_minutes);
+        const payload = {
+          title: "Marivini",
+          body: `Seu evento "${event.title}" começa em ${minutes} minuto${minutes > 1 ? "s" : ""}.`,
+          url: "/index.html",
+          tag: `calendar-reminder-${event.id}`
+        };
+        const targetUserIds = await listEventRecipientUserIds(event.user_id);
 
-      const minutes = Number(event.reminder_minutes);
-      const payload = {
-        title: "Marivini",
-        body: `Seu evento "${event.title}" começa em ${minutes} minuto${minutes > 1 ? "s" : ""}.`,
-        url: "/index.html",
-        tag: `calendar-reminder-${event.id}`
-      };
-      const summary = await sendPushToUser(event.user_id, payload);
+        for (const targetUserId of targetUserIds) {
+          try {
+            const dedupeKey = `calendar:${targetUserId}:${event.id}:${event.reminder_minutes}`;
+            if (await hasNotificationDelivery(dedupeKey)) {
+              results.push({ eventId: event.id, targetUserId, skipped: true, reason: "duplicate" });
+              continue;
+            }
 
-      if (summary.sent > 0) {
-        await recordNotificationDelivery({
-          userId: event.user_id,
-          dedupeKey,
-          notificationType: "calendar_reminder",
-          payload,
-          status: "sent",
-          summary
+            const summary = await sendPushToUser(targetUserId, payload);
+
+            if (summary.sent > 0) {
+              await recordNotificationDelivery({
+                userId: targetUserId,
+                dedupeKey,
+                notificationType: "calendar_reminder",
+                payload,
+                status: "sent",
+                summary
+              });
+            } else if (summary.attempted > 0) {
+              await recordNotificationDelivery({
+                userId: targetUserId,
+                dedupeKey,
+                notificationType: "calendar_reminder",
+                payload,
+                status: "error",
+                summary,
+                errorMessage: "No active subscription accepted delivery."
+              });
+            }
+
+            results.push({ eventId: event.id, targetUserId, summary });
+          } catch (error) {
+            results.push({
+              eventId: event.id,
+              targetUserId,
+              error: error instanceof Error ? error.message : "Failed to send recipient reminder."
+            });
+          }
+        }
+      } catch (error) {
+        results.push({
+          eventId: event.id,
+          error: error instanceof Error ? error.message : "Failed to process event reminder."
         });
-      } else if (summary.attempted > 0) {
-        await recordNotificationDelivery({
-          userId: event.user_id,
-          dedupeKey,
-          notificationType: "calendar_reminder",
-          payload,
-          status: "error",
-          summary,
-          errorMessage: "No active subscription accepted delivery."
-        });
       }
-
-      results.push({ eventId: event.id, summary });
     }
 
     return jsonResponse({
