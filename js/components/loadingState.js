@@ -23,6 +23,37 @@ export function loadingState({ variant = "default", dateLabel = "Hoje" } = {}) {
     `;
   }
 
+  if (variant === "calendar") {
+    return `
+      <div class="loading-state loading-state--calendar" aria-hidden="true">
+        <section class="card calendar-card loading-state__calendar-card">
+          <div class="calendar-header calendar-header--loading">
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--prev" type="button" aria-label="Mês anterior" disabled></button>
+            <div class="loading-state__line loading-state__line--calendar-month"></div>
+            <button class="icon-button habit-date-nav__arrow habit-date-nav__arrow--next" type="button" aria-label="Próximo mês" disabled></button>
+          </div>
+          <div class="loading-state__calendar-grid">
+            ${Array.from({ length: 7 }, () => '<div class="loading-state__calendar-weekday"></div>').join("")}
+            ${Array.from({ length: 42 }, (_, index) => calendarDayLoadingState(index)).join("")}
+          </div>
+        </section>
+        <section class="loading-state__calendar-section" aria-label="Carregando eventos do dia">
+          <article class="card event-card loading-state__event-card">
+            ${eventCardLoadingState()}
+          </article>
+        </section>
+        <section class="loading-state__calendar-section" aria-label="Carregando próximos eventos">
+          <div class="events-section-divider loading-state__calendar-divider">
+            <span>Próximos eventos</span>
+          </div>
+          <div class="events-list">
+            ${Array.from({ length: 2 }, () => `<article class="card event-card loading-state__event-card">${eventCardLoadingState(true)}</article>`).join("")}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
   return `
     <div class="card loading-state">
       <div class="loading-state__header">
@@ -53,5 +84,34 @@ function habitCardLoadingState() {
         </div>
       </div>
     </article>
+  `;
+}
+
+function calendarDayLoadingState(index) {
+  const isOutside = index < 4 || index > 33;
+
+  return `
+    <div class="loading-state__calendar-day ${isOutside ? "is-outside" : ""}">
+      <div class="loading-state__line loading-state__line--calendar-day-number"></div>
+      <div class="loading-state__calendar-day-dot"></div>
+    </div>
+  `;
+}
+
+function eventCardLoadingState(showDate = false) {
+  return `
+    <div class="event-card__top">
+      <div class="event-card__body">
+        <div class="loading-state__event-icon"></div>
+        <div class="event-card__content">
+          <div class="loading-state__line loading-state__line--event-title"></div>
+          <div class="loading-state__event-meta">
+            ${showDate ? '<div class="loading-state__line loading-state__line--event-date"></div>' : ""}
+            <div class="loading-state__line loading-state__line--event-time"></div>
+          </div>
+        </div>
+      </div>
+      <div class="loading-state__event-action"></div>
+    </div>
   `;
 }

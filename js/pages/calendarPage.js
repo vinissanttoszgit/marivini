@@ -15,6 +15,7 @@ import { validateRequired } from "../utils/validators.js";
 const LONG_PRESS_MS = 500;
 const POINTER_CANCEL_DISTANCE = 10;
 const PENDING_EVENTS_LIMIT = 20;
+const CALENDAR_PRELOAD_RADIUS = 2;
 
 const EVENT_EMOJI_OPTIONS = ["🗓️", "💼", "❤️", "🏠", "🎂", "🩺", "💸", "📞", "✈️", "🛒", "🎯", "🏊", "🏀", "🏐", "⚽", "🎾"];
 
@@ -37,6 +38,7 @@ export function createCalendarPage(context) {
   };
 
   const monthCache = new Map();
+  const pendingMonthRequests = new Map();
   let iconPickerCleanup = null;
   let consumedLongPressEventId = null;
   let consumedLongPressUntil = 0;
@@ -165,17 +167,39 @@ export function createCalendarPage(context) {
     return sortEvents(await eventsService.listEventsByMonth({ startDate, endDate }));
   }
 
-  async function loadMonth({ preferCache = true } = {}) {
-    const monthKey = getMonthCacheKey(state.currentMonth);
+  function clearMonthCaches() {
+    monthCache.clear();
+    pendingMonthRequests.clear();
+  }
+
+  function ensureMonthData(date, { preferCache = true } = {}) {
+    const monthKey = getMonthCacheKey(date);
 
     if (preferCache && monthCache.has(monthKey)) {
-      state.monthlyEvents = [...monthCache.get(monthKey)];
-      return;
+      return Promise.resolve([...monthCache.get(monthKey)]);
     }
 
-    const events = await fetchMonthEvents(state.currentMonth);
-    monthCache.set(monthKey, events);
-    state.monthlyEvents = [...events];
+    if (pendingMonthRequests.has(monthKey)) {
+      return pendingMonthRequests.get(monthKey);
+    }
+
+    const request = fetchMonthEvents(date)
+      .then((events) => {
+        monthCache.set(monthKey, events);
+        return [...events];
+      })
+      .finally(() => {
+        if (pendingMonthRequests.get(monthKey) === request) {
+          pendingMonthRequests.delete(monthKey);
+        }
+      });
+
+    pendingMonthRequests.set(monthKey, request);
+    return request;
+  }
+
+  async function loadMonth({ preferCache = true } = {}) {
+    state.monthlyEvents = await ensureMonthData(state.currentMonth, { preferCache });
   }
 
   async function loadPendingEvents() {
@@ -188,19 +212,16 @@ export function createCalendarPage(context) {
   }
 
   function preloadAdjacentMonths() {
-    [shiftMonth(state.currentMonth, -1), shiftMonth(state.currentMonth, 1)].forEach(async (monthDate) => {
-      const monthKey = getMonthCacheKey(monthDate);
-      if (monthCache.has(monthKey)) {
-        return;
+    for (let offset = -CALENDAR_PRELOAD_RADIUS; offset <= CALENDAR_PRELOAD_RADIUS; offset += 1) {
+      if (offset === 0) {
+        continue;
       }
 
-      try {
-        const events = await fetchMonthEvents(monthDate);
-        monthCache.set(monthKey, events);
-      } catch {
+      const monthDate = shiftMonth(state.currentMonth, offset);
+      ensureMonthData(monthDate, { preferCache: true }).catch(() => {
         // Ignora falhas de preload para nao interferir na navegacao principal.
-      }
-    });
+      });
+    }
   }
 
   async function refreshCalendarData(root, { preferCache = true, reloadPending = true } = {}) {
@@ -234,7 +255,7 @@ export function createCalendarPage(context) {
   async function render(root) {
     const calendarCacheKey = getCalendarVisibilityCacheKey();
     if (renderedCalendarCacheKey !== calendarCacheKey) {
-      monthCache.clear();
+      clearMonthCaches();
       clearSelection();
       renderedCalendarCacheKey = calendarCacheKey;
     }
@@ -245,7 +266,7 @@ export function createCalendarPage(context) {
       subtitle: ""
     });
 
-    root.innerHTML = loadingState();
+    root.innerHTML = loadingState({ variant: "calendar" });
 
     try {
       await refreshCalendarData(root, { preferCache: true, reloadPending: true });
@@ -683,7 +704,7 @@ export function createCalendarPage(context) {
           context.toast.success("Evento criado.");
         }
 
-        monthCache.clear();
+        clearMonthCaches();
         clearSelection();
         state.selectedDate = payload.eventDate;
         context.modal.close();
@@ -696,7 +717,7 @@ export function createCalendarPage(context) {
 
   async function removeEvents(ids, root) {
     await Promise.all(ids.map((id) => eventsService.deleteEvent(id)));
-    monthCache.clear();
+    clearMonthCaches();
     clearSelection();
     context.modal.close();
     context.toast.success(ids.length > 1 ? "Eventos excluídos." : "Evento excluído.");
